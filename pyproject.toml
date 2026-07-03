@@ -9,28 +9,27 @@ description = "Generate ProPresenter 7 (.pro) presentations from lyrics text, wi
 readme = "README.md"
 requires-python = ">=3.8"
 license = "Apache-2.0"
-authors = [{ name = "Your Name" }]
+authors = [{ name = "Li Xue" }]
 keywords = ["propresenter", "worship", "lyrics", "pinyin", "protobuf"]
 dependencies = [
     "protobuf>=4",
     "pypinyin>=0.44",
+    "anthropic>=0.30",
+    "opencc>=1.1",
+    "pyyaml>=5.1",
 ]
-
-[project.optional-dependencies]
-# extras for prep_lyrics (LLM pronoun/translation + Simplified->Traditional)
-prep = ["anthropic>=0.30", "opencc>=1.1"]
 
 [project.scripts]
 make_pro = "propresenter_lyrics.make_pro:main"
 prep_lyrics = "propresenter_lyrics.prep_lyrics:main"
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/propresenter-lyrics"
-Source = "https://github.com/YOUR_USERNAME/propresenter-lyrics"
+Homepage = "https://github.com/LilySnow/propresenter-lyrics"
+Source = "https://github.com/LilySnow/propresenter-lyrics"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"propresenter_lyrics" = ["config.json"]
+"propresenter_lyrics" = ["config.template.yaml"]
 "propresenter_lyrics.proto" = ["*.py"]

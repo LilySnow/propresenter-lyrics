@@ -28,85 +28,17 @@ theology-sensitive.
 
 import sys, os, argparse, re, difflib
 
+# shared deterministic tag handling (works as a script and when installed)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import _tags
+
 MODEL_DEFAULT = "claude-sonnet-4-6"
 
 SYSTEM = """You are a meticulous editor of Chinese Christian worship lyrics and a \
 careful translator. You make only the changes you are asked for and you never \
 add commentary."""
-
-# ---- (a) tag typo correction --------------------------------------------
-CANON_TAGS = ["Title", "Pre-Chorus", "Verse", "Chorus", "Bridge", "Intro",
-              "Outro", "Ending", "Tag", "Refrain", "Interlude", "Vamp", "Coda"]
-_CANON_LOWER = {t.lower(): t for t in CANON_TAGS}
-_CN_TAGS = {"标题", "標題", "歌名"}
-# non-lyric metadata tags that must never be "corrected" into a lyric tag
-DEFAULT_IGNORE = ["youtube", "url", "link", "video", "ccli", "copyright",
-                  "author", "key", "tempo", "bpm", "note", "notes", "comment",
-                  "source"]
-_HEADER_RE = re.compile(r"^(\s*)\[(.+?)\](\s*)$")
-_NUM_RE = re.compile(r"^(.*?)[\s]*?(\d+)?\s*$")   # trailing number, optional
-
-
-def correct_tags(text, ignore=None):
-    """Fix typos/casing in [Section] tags WITHOUT touching a trailing number.
-    [chorus 1] -> [Chorus 1], [chrous1] -> [Chorus 1], [titel] -> [Title].
-    Tags in `ignore` (metadata like [youtube]) and unknown tags are left alone.
-    Returns (fixed_text, warnings)."""
-    ignore = set(w.lower() for w in (ignore if ignore is not None else DEFAULT_IGNORE))
-    warnings, out = [], []
-    for line in text.splitlines():
-        m = _HEADER_RE.match(line)
-        if not m:
-            out.append(line)
-            continue
-        inner = m.group(2)
-        name, rest = (inner.split("|", 1)[0], "|" + inner.split("|", 1)[1]) \
-            if "|" in inner else (inner, "")
-        name = name.strip()
-
-        # peel off a trailing number ("Chorus 1", "Chorus1") so we never lose it
-        nm = _NUM_RE.match(name)
-        alpha = nm.group(1).strip() if nm else name
-        num = nm.group(2) if nm else None
-        low = alpha.lower()
-
-        new_alpha = None
-        if low in ignore or low in _CN_TAGS or alpha in _CN_TAGS:
-            pass                                       # metadata / valid CN tag
-        elif low in _CANON_LOWER:
-            new_alpha = _CANON_LOWER[low]              # just normalise case
-        else:
-            match = difflib.get_close_matches(low, list(_CANON_LOWER), n=1, cutoff=0.75)
-            if match:
-                new_alpha = _CANON_LOWER[match[0]]
-            else:
-                warnings.append("unrecognised tag [%s] (left unchanged)" % name)
-
-        if new_alpha and (new_alpha != alpha or num is not None):
-            fixed = new_alpha + (" " + num if num else "")
-            if fixed != name:
-                warnings.append("tag [%s] -> [%s]" % (name, fixed))
-            name = fixed
-        out.append("%s[%s%s]%s" % (m.group(1), name,
-                                   (" " + rest) if rest else "", m.group(3)))
-    return "\n".join(out), warnings
-
-
-def _load_ignore():
-    """Read ignore_sections from config.json (same search order as make_pro),
-    falling back to DEFAULT_IGNORE."""
-    import json
-    here = os.path.dirname(os.path.abspath(__file__))
-    for cand in (os.path.join(os.getcwd(), "config.json"),
-                 os.path.expanduser("~/.config/propresenter-lyrics/config.json"),
-                 os.path.join(here, "config.json")):
-        if os.path.exists(cand):
-            try:
-                return json.load(open(cand, encoding="utf-8")).get(
-                    "ignore_sections", DEFAULT_IGNORE)
-            except Exception:
-                break
-    return DEFAULT_IGNORE
 
 
 # ---- (c) Simplified -> Traditional --------------------------------------
@@ -138,10 +70,11 @@ def build_prompt(lyrics, other_lang, do_pronouns, do_translate):
         rules.append(
             "1. REVERENCE PRONOUNS (Chinese text only): wherever a pronoun clearly "
             "refers to God / Jesus / the Holy Spirit, rewrite it -- second person "
-            "你/你的/你們/你们 -> 祢, and third person 他/她/它/牠 -> 祂. This applies "
-            "both to Chinese lyric lines AND to any Chinese you produce as a "
-            "translation. If a pronoun refers to people, do NOT change it "
-            "(e.g. 你们要彼此相爱 keeps 你们). When uncertain, leave it unchanged.")
+            "你/你的/你們/你们 -> 祢, and third person 他/她/它/牠 -> 祂. Apply this to "
+            "ALL Chinese in the file: lyric lines, the song title under [Title], "
+            "and any Chinese you produce as a translation. This is a church "
+            "songbook, so treat 你/他 as referring to God by default; only keep "
+            "你/他 unchanged when it clearly refers to people (e.g. 你们要彼此相爱).")
     if do_translate:
         rules.append(
             f"2. TRANSLATION: append ' | ' then a natural, singable translation:\n"
@@ -160,12 +93,14 @@ def build_prompt(lyrics, other_lang, do_pronouns, do_translate):
 
 STRICT OUTPUT RULES:
 - Output the WHOLE file, same line order, nothing else (no explanations, no code fences).
-- Keep every section header line exactly as-is: lines like [Title], [Verse 1],
-  [Chorus | #cc0033], and the title text under [Title]. Do not translate or
-  alter headers or the title line.
+- Keep the section HEADER lines exactly as-is: lines like [Title], [Verse 1],
+  [Chorus | #cc0033]. The song title text under [Title] is NOT translated (no
+  ' | '), but DO apply the reverence-pronoun fix to it.
 - Keep blank lines exactly where they are.
-- Leave metadata sections untouched: under headers like [youtube], [ccli],
-  [key], [note], etc., do not translate or change URLs, numbers, or notes.
+- A "lyric section" is one whose tag is a normal song part (Verse, Chorus,
+  Bridge, Pre-Chorus, Intro, Outro, Tag, etc.). Any other section (e.g.
+  [youtube], [ccli], [key], [note]) is metadata: leave its content completely
+  unchanged -- do not translate or alter URLs, numbers, or notes.
 - Only lyric lines change. Each lyric line becomes:  original | translation
 - Do not merge or split lines. One input lyric line -> one output lyric line.
 
@@ -271,7 +206,7 @@ def main():
 
     # (a) deterministic tag typo correction (warnings to stderr)
     if not args.no_tag_fix:
-        lyrics, tag_warnings = correct_tags(lyrics, ignore=_load_ignore())
+        lyrics, tag_warnings = _tags.correct_tags(lyrics)
         for w in tag_warnings:
             sys.stderr.write("WARNING: %s\n" % w)
 

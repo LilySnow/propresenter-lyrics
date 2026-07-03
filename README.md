@@ -16,17 +16,19 @@ Validated against ProPresenter **21.4**.
 
 ## Install
 
+Not on PyPI — install straight from GitHub (this pulls in everything, including
+the `prep_lyrics` dependencies):
+
 ```bash
-pip install propresenter-lyrics            # make_pro
-pip install "propresenter-lyrics[prep]"    # + prep_lyrics (Claude + OpenCC)
+pip install git+https://github.com/LilySnow/propresenter-lyrics.git
 ```
 
-Or from source:
+Or from a clone (handy if you want the example config and source at hand):
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/propresenter-lyrics.git
+git clone https://github.com/LilySnow/propresenter-lyrics.git
 cd propresenter-lyrics
-pip install -e ".[prep]"
+pip install -e .
 ```
 
 `prep_lyrics` needs an Anthropic API key:
@@ -69,21 +71,31 @@ https://youtu.be/xxxx
   Default is one lyric line per page.
 - **Chinese line** → PINYIN on top, 中文, translation below.
   **Dutch/English line** → primary, Chinese translation below (no pinyin).
-- **Metadata sections** listed in `ignore_sections` (e.g. `[youtube]`, `[ccli]`)
-  are skipped — their content never appears in the `.pro`.
+- **Metadata / custom tags:** only standard ProPresenter group tags (Verse,
+  Chorus, Bridge, Pre-Chorus, Intro, Outro, Tag, …) become slides. **Any other
+  tag** (e.g. `[youtube]`, `[ccli]`, `[key]`) is automatically ignored — its
+  content never appears in the `.pro`, no configuration needed. `make_pro`
+  prints a `note:` to stderr for each skipped section so a mistyped group tag
+  doesn't vanish silently.
 
 ## Configuration
 
-All fonts, sizes, stroke, title position, markers, and ignored sections live in
-`config.json`. `make_pro` looks for it in this order:
+All fonts, sizes, stroke, title position, and markers live in a **YAML** config
+(commented, easy to edit). Create one you can edit with:
+
+```bash
+make_pro --init-config                 # ~/.config/propresenter-lyrics/config.yaml
+make_pro --init-config ./config.yaml   # or in your working folder
+```
+
+`make_pro` searches for a config in this order (first found wins; otherwise
+built-in defaults apply):
 
 1. `--config PATH`
-2. `./config.json` (current directory)
-3. `~/.config/propresenter-lyrics/config.json`
-4. the packaged default
+2. `./config.yaml` (or `.yml` / `.json`) in the current directory
+3. `~/.config/propresenter-lyrics/config.yaml`
 
-Copy the default from `src/propresenter_lyrics/config.json`, edit, and drop it in
-your working dir or `~/.config/propresenter-lyrics/`.
+JSON is also accepted if you prefer it. See [`config.example.yaml`](config.example.yaml).
 
 ## Recompiling the ProPresenter format (rarely needed)
 

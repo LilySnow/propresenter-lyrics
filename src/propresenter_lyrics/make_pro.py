@@ -64,11 +64,11 @@ PAGING / LINE BREAKS:
   - A standalone `//` line forces a PAGE break (lines between breaks share a page).
   - A `//` inside a line forces a visual LINE break there (for long lines).
 
-FONTS / SIZES / STROKE / TITLE all live in config.json (edit that, not the code):
+FONTS / SIZES / STROKE / TITLE all live in config.yaml (edit that, not the code):
   Chinese lines -> pinyin 65 / 中文 120 / translation 80
   Dutch/English -> primary 105 / Chinese translation 95
   Title 70 (bottom-right), 6px black stroke on all text, white fill.
-  Pass a different file with --config myconfig.json.
+  Pass a different file with --config myconfig.yaml.
 """
 
 import sys, re, uuid
@@ -97,8 +97,11 @@ import action_pb2
 import graphicsData_pb2
 import color_pb2
 
+# shared deterministic tag handling (typo fix + standard-tag sets)
+import _tags
+
 # ---------------------------------------------------------------------------
-# Configuration (all easily-tweakable settings live here / in config.json)
+# Configuration (all easily-tweakable settings live here / in config.yaml)
 # ---------------------------------------------------------------------------
 # Each tier is {"font": <rtf/postscript name>, "family": <display name>, "size": pt}.
 DEFAULT_CONFIG = {
@@ -120,11 +123,6 @@ DEFAULT_CONFIG = {
               "bottom_margin": 20},
     "markers": {"page_break": "//", "line_break": "//",
                 "translation_sep": "|｜∣│"},  # any of these splits lyric | translation
-    # sections with these names are metadata (e.g. [youtube] URL) -> skipped,
-    # never turned into slides.
-    "ignore_sections": ["youtube", "url", "link", "video", "ccli", "copyright",
-                        "author", "key", "tempo", "bpm", "note", "notes",
-                        "comment", "source"],
 }
 
 
@@ -138,25 +136,32 @@ def _deep_merge(base, over):
     return out
 
 
+def _read_config_file(path):
+    import json
+    if path.endswith((".yaml", ".yml")):
+        import yaml
+        with open(path, encoding="utf-8") as fh:
+            return yaml.safe_load(fh) or {}
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
 def load_config(path=None):
-    """Return DEFAULT_CONFIG merged with a JSON config, searched in order:
-    1) explicit `path`, 2) ./config.json in the current directory,
-    3) ~/.config/propresenter-lyrics/config.json, 4) the packaged default
-    beside this module. First one found wins."""
-    import os, json
-    cfg = DEFAULT_CONFIG
-    here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [
-        path,
-        os.path.join(os.getcwd(), "config.json"),
-        os.path.expanduser("~/.config/propresenter-lyrics/config.json"),
-        os.path.join(here, "config.json"),
-    ]
+    """Return DEFAULT_CONFIG merged with a user config, searched in order:
+    1) explicit `path`, 2) ./config.{yaml,yml,json} in the current directory,
+    3) ~/.config/propresenter-lyrics/config.{yaml,yml,json}. First one found
+    wins; if none exist, the built-in defaults are used."""
+    import os
+    candidates = []
+    if path:
+        candidates.append(path)
+    for d in (os.getcwd(), os.path.expanduser("~/.config/propresenter-lyrics")):
+        for ext in ("yaml", "yml", "json"):
+            candidates.append(os.path.join(d, "config." + ext))
     for cand in candidates:
         if cand and os.path.exists(cand):
-            with open(cand, encoding="utf-8") as fh:
-                return _deep_merge(cfg, json.load(fh))
-    return cfg
+            return _deep_merge(DEFAULT_CONFIG, _read_config_file(cand))
+    return DEFAULT_CONFIG
 
 
 def split_linebreaks(s, marker="//"):
@@ -251,28 +256,24 @@ def parse_color(spec):
     return tuple(parts[:3])
 
 
-TITLE_SECTION_NAMES = {"title", "标题", "標題", "歌名"}
+TITLE_SECTION_NAMES = _tags.TITLE_TAGS
 
 
-def parse_sections(text, default_name="Lyrics", ignore=None):
+# Standard ProPresenter group tags come from _tags.GROUP_TAGS. Only sections
+# whose name matches one (by first word) become slides; other tags are metadata.
+def parse_sections(text, default_name="Lyrics", group_tags=None):
     """Split text into sections by '[Group Name]' header lines.
 
-    Header syntax:  [Verse 1]            -> auto colour from name
-                    [Chorus | #cc0033]   -> explicit hex colour
-                    [Bridge | 0.46,0,0.8] -> explicit r,g,b colour
-
     A section named [Title] / [标题] / [歌名] is special: its text is taken as the
-    song title (not turned into slides). Sections whose name is in `ignore`
-    (e.g. [youtube]) are metadata and dropped entirely. Returns (title, sections).
-
-    Lines before the first header (if any) go into a section named default_name.
-    If there are no headers at all, the whole file becomes one section.
-    """
-    ignore = set(w.lower() for w in (ignore or []))
+    song title (not turned into slides). Only sections whose tag is a standard
+    ProPresenter group tag (see DEFAULT_GROUP_TAGS) become slides; any other tag
+    is metadata and skipped. Un-tagged content before the first header is always
+    kept. Returns (title, sections, skipped_names)."""
+    group_tags = group_tags or _tags.GROUP_TAGS
     header_re = re.compile(r"^\s*\[(.+?)\]\s*$")
     title = None
-    sections = []
-    cur = {"name": default_name, "color": None, "lines": []}
+    sections, skipped = [], []
+    cur = {"name": default_name, "color": None, "lines": [], "explicit": False}
 
     def flush(section):
         nonlocal title
@@ -281,12 +282,14 @@ def parse_sections(text, default_name="Lyrics", ignore=None):
         nm = section["name"].strip().lower()
         first = nm.split()[0] if nm.split() else nm
         if nm in TITLE_SECTION_NAMES:
-            if title is None:                # first title wins
+            if title is None:                       # first title wins
                 title = next(l.strip() for l in section["lines"] if l.strip())
-        elif nm in ignore or first in ignore:
-            return                           # metadata section -> skip
+        elif not section["explicit"]:
+            sections.append(section)                # un-tagged default content
+        elif first in group_tags or nm in group_tags:
+            sections.append(section)                # standard group tag
         else:
-            sections.append(section)
+            skipped.append(section["name"].strip())  # metadata -> skip
 
     for raw in text.splitlines():
         m = header_re.match(raw)
@@ -298,11 +301,11 @@ def parse_sections(text, default_name="Lyrics", ignore=None):
                 color = parse_color(col)
             else:
                 nm, color = header, None
-            cur = {"name": nm.strip(), "color": color, "lines": []}
+            cur = {"name": nm.strip(), "color": color, "lines": [], "explicit": True}
         else:
             cur["lines"].append(raw)
     flush(cur)
-    return title, sections
+    return title, sections, skipped
 
 
 def rtf_escape(s):
@@ -619,9 +622,15 @@ def parse_title(text):
 
 def build_presentation(name, text, cfg, *, group_name="Lyrics", footer_title=None):
     # title can come from: footer_title (CLI) > [Title] section > @title directive
+    # fix typo'd standard tags FIRST (so [Chrous] -> [Chorus] is kept, not skipped)
+    text, tag_warnings = _tags.correct_tags(text)
+    for w in tag_warnings:
+        sys.stderr.write("note: %s\n" % w)
     directive_title, text = parse_title(text)
-    section_title, sections = parse_sections(
-        text, default_name=group_name, ignore=cfg.get("ignore_sections", []))
+    section_title, sections, skipped = parse_sections(text, default_name=group_name)
+    for nm in skipped:
+        sys.stderr.write("note: skipping non-standard section [%s] "
+                         "(not a ProPresenter group tag)\n" % nm)
     title = footer_title or section_title or directive_title
     if title and (name is None or name == "Generated Song"):
         name = title
@@ -698,8 +707,25 @@ def main():
     ap.add_argument("-n", "--name", default="Generated Song")
     ap.add_argument("--title", default=None, help="Song title footer (overrides [Title] in the file)")
     ap.add_argument("--config", default=None,
-                    help="JSON config for fonts/sizes/stroke/title (default: config.json beside this script)")
+                    help="config file (YAML or JSON) for fonts/sizes/stroke/title")
+    ap.add_argument("--init-config", nargs="?", const="", default=None,
+                    metavar="PATH",
+                    help="write a commented config.yaml you can edit, then exit "
+                         "(default: ~/.config/propresenter-lyrics/config.yaml)")
     args = ap.parse_args()
+
+    if args.init_config is not None:
+        import shutil
+        dest = os.path.expanduser(
+            args.init_config or "~/.config/propresenter-lyrics/config.yaml")
+        template = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "config.template.yaml")
+        d = os.path.dirname(dest)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        shutil.copyfile(template, dest)
+        print("Wrote editable config to %s" % dest)
+        return
 
     cfg = load_config(args.config)
 
