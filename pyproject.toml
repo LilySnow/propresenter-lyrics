@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [project.scripts]
-make_pro = "propresenter_lyrics.make_pro:main"
-prep_lyrics = "propresenter_lyrics.prep_lyrics:main"
+pp-make = "propresenter_lyrics.make_pro:main"
+pp-prep = "propresenter_lyrics.prep_lyrics:main"
 
 [project.urls]
 Homepage = "https://github.com/LilySnow/propresenter-lyrics"

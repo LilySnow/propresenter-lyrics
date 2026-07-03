@@ -14,7 +14,7 @@ stroke:                            # outline drawn around ALL text
   width: 6                         # 0 turns the outline off
   color: [0, 0, 0]                 # black
 
-translation_gap: 70                # blank space (pt) between a lyric and its translation
+translation_gap: 20                # blank space (pt) between a lyric and its translation
 
 # When the MAIN lyric line is Chinese:
 chinese:
@@ -36,7 +36,7 @@ latin:
   primary:                         # the Dutch/English lyric
     font: HelveticaNeue
     family: Helvetica Neue
-    size: 110
+    size: 105
   translation:                     # the Chinese translation, shown below
     font: PingFangSC-Regular
     family: PingFang SC

@@ -7,8 +7,8 @@ teams, but useful for any multilingual lyrics.
 
 Two commands:
 
-- **`make_pro`** — turns a lyrics text file into a `.pro` (deterministic, offline).
-- **`prep_lyrics`** — optional pre-pass that uses Claude to fix reverence
+- **`pp-make`** — turns a lyrics text file into a `.pro` (deterministic, offline).
+- **`pp-prep`** — optional pre-pass that uses Claude to fix reverence
   pronouns and add translations, plus deterministic tag-typo fixing and
   Simplified→Traditional conversion.
 
@@ -17,7 +17,7 @@ Validated against ProPresenter **21.4**.
 ## Install
 
 Not on PyPI — install straight from GitHub (this pulls in everything, including
-the `prep_lyrics` dependencies):
+the `pp-prep` dependencies):
 
 ```bash
 pip install git+https://github.com/LilySnow/propresenter-lyrics.git
@@ -31,7 +31,7 @@ cd propresenter-lyrics
 pip install -e .
 ```
 
-`prep_lyrics` needs an Anthropic API key:
+`pp-prep` needs an Anthropic API key:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -41,10 +41,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 ```bash
 # lyrics already final (pronouns + translations done):
-make_pro song.txt -o ~/Downloads/song.pro
+pp-make song.txt -o ~/Downloads/song.pro
 
 # let Claude fix pronouns / translate / convert, then build, in one pipe:
-prep_lyrics song.txt | make_pro -o ~/Downloads/song.pro
+pp-prep song.txt | pp-make -o ~/Downloads/song.pro
 ```
 
 Both read a file, or stdin when you omit the filename.
@@ -65,7 +65,7 @@ https://youtu.be/xxxx
 
 - `[Title]` — song name, shown small in a corner and used as the document name.
 - `[Verse 1]`, `[Chorus 2]`, … — coloured groups. Numbers are preserved; typos
-  are auto-corrected by `prep_lyrics`.
+  are auto-corrected by `pp-prep`.
 - **Translation separator:** ` | ` (also accepts full-width `｜` and similar bars).
 - **`//` inside a line** = line break; **`//` on its own line** = page break.
   Default is one lyric line per page.
@@ -74,7 +74,7 @@ https://youtu.be/xxxx
 - **Metadata / custom tags:** only standard ProPresenter group tags (Verse,
   Chorus, Bridge, Pre-Chorus, Intro, Outro, Tag, …) become slides. **Any other
   tag** (e.g. `[youtube]`, `[ccli]`, `[key]`) is automatically ignored — its
-  content never appears in the `.pro`, no configuration needed. `make_pro`
+  content never appears in the `.pro`, no configuration needed. `pp-make`
   prints a `note:` to stderr for each skipped section so a mistyped group tag
   doesn't vanish silently.
 
@@ -84,11 +84,11 @@ All fonts, sizes, stroke, title position, and markers live in a **YAML** config
 (commented, easy to edit). Create one you can edit with:
 
 ```bash
-make_pro --init-config                 # ~/.config/propresenter-lyrics/config.yaml
-make_pro --init-config ./config.yaml   # or in your working folder
+pp-make --init-config                 # ~/.config/propresenter-lyrics/config.yaml
+pp-make --init-config ./config.yaml   # or in your working folder
 ```
 
-`make_pro` searches for a config in this order (first found wins; otherwise
+`pp-make` searches for a config in this order (first found wins; otherwise
 built-in defaults apply):
 
 1. `--config PATH`
@@ -113,7 +113,7 @@ Proto definitions are reverse-engineered by the community project
 ## Notes
 
 - Reverence pronouns (你→祢, 他→祂 for God) and translations are
-  theology-sensitive — review `prep_lyrics` output before generating slides.
+  theology-sensitive — review `pp-prep` output before generating slides.
 - Multi-size rows and text stroke render from proto attributes; verify on a copy
   of your library first.
 
