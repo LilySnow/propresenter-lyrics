@@ -16,6 +16,10 @@ stroke:                            # outline drawn around ALL text
 
 translation_gap: 20                # blank space (pt) between a lyric and its translation
 
+margins:                           # keep text this far (px) from the slide edges
+  x: 96                            # left / right
+  y: 54                            # top / bottom
+
 # When the MAIN lyric line is Chinese:
 chinese:
   pinyin:                          # auto-generated PINYIN line, shown on top
@@ -36,7 +40,7 @@ latin:
   primary:                         # the Dutch/English lyric
     font: HelveticaNeue
     family: Helvetica Neue
-    size: 105
+    size: 110
   translation:                     # the Chinese translation, shown below
     font: PingFangSC-Regular
     family: PingFang SC

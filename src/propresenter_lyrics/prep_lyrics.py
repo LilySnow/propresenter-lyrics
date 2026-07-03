@@ -82,9 +82,13 @@ def build_prompt(lyrics, other_lang, do_pronouns, do_translate):
             f"   - a non-Chinese line (e.g. {other_lang} or English) -> add its "
             f"Chinese translation (use reverence pronouns 祢/祂 in that Chinese "
             f"where it refers to God)\n"
+            f"   - LINE BREAKS: if the source lyric contains '//' (a manual line "
+            f"break), split it on '//', translate each part, and join your "
+            f"translation with '//' at the SAME positions so the breaks line up. "
+            f"Do not add '//' where the source has none.\n"
             f"   If a line ALREADY contains ' | ' with a translation, keep that "
-            f"existing translation unchanged (still apply pronoun fixes to any "
-            f"Chinese part).")
+            f"existing translation unchanged -- do not add, remove, or move any "
+            f"'//' in it (still apply pronoun fixes to any Chinese part).")
     rules_block = "\n".join(rules)
 
     return f"""Transform the worship-lyrics file below.

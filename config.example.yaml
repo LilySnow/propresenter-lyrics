@@ -14,7 +14,11 @@ stroke:                            # outline drawn around ALL text
   width: 6                         # 0 turns the outline off
   color: [0, 0, 0]                 # black
 
-translation_gap: 70                # blank space (pt) between a lyric and its translation
+translation_gap: 20                # blank space (pt) between a lyric and its translation
+
+margins:                           # keep text this far (px) from the slide edges
+  x: 96                            # left / right
+  y: 54                            # top / bottom
 
 # When the MAIN lyric line is Chinese:
 chinese:

@@ -109,13 +109,14 @@ DEFAULT_CONFIG = {
     "text_color": [255, 255, 255],                 # white
     "stroke":     {"width": 6, "color": [0, 0, 0]}, # outline on ALL text (0 = off)
     "translation_gap": 20,     # blank space (pt) between a lyric and its translation
+    "margins": {"x": 96, "y": 54},   # keep text this far (px) from the slide edges
     "chinese": {   # when the MAIN lyric line is Chinese
         "pinyin":      {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 65},
         "primary":     {"font": "PingFangSC-Regular","family": "PingFang SC",    "size": 120},
         "translation": {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 80},
     },
     "latin": {     # when the MAIN lyric line is Dutch / English
-        "primary":     {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 105},
+        "primary":     {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 110},
         "translation": {"font": "PingFangSC-Regular","family": "PingFang SC",    "size": 95},
     },
     "title": {"font": "HelveticaNeue", "family": "Helvetica Neue", "size": 70,
@@ -500,10 +501,12 @@ def add_lyric_element(base, page_lines, cfg):
     new_uuid(gel.uuid)
     gel.name = "TextElement"
     gel.opacity = 1.0
-    gel.bounds.origin.x = 0.0
-    gel.bounds.origin.y = 0.0
-    gel.bounds.size.width = slide_w
-    gel.bounds.size.height = slide_h
+    mgn = cfg.get("margins", {})
+    mx = float(mgn.get("x", 0)); my = float(mgn.get("y", 0))
+    gel.bounds.origin.x = mx
+    gel.bounds.origin.y = my
+    gel.bounds.size.width = slide_w - 2 * mx
+    gel.bounds.size.height = slide_h - 2 * my
     set_rect_path(gel.path)
 
     txt = gel.text
