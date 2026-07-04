@@ -1,0 +1,62 @@
+# ProPresenter-lyrics configuration
+# ---------------------------------
+# Edit values below and save. Sizes are in points. Colours are [R, G, B], 0-255.
+# make_pro looks for this file as ./config.yaml, then
+# ~/.config/propresenter-lyrics/config.yaml. Pass --config PATH to use another.
+
+slide:
+  width: 1920
+  height: 1080
+
+text_color: [255, 255, 255]        # main text colour (white)
+
+stroke:                            # outline drawn around ALL text
+  width: 6                         # 0 turns the outline off
+  color: [0, 0, 0]                 # black
+
+translation_gap: 70                # blank space (pt) between a lyric and its translation
+
+margins:                           # keep text this far (px) from the slide edges
+  x: 96                            # left / right
+  y: 54                            # top / bottom
+
+# When the MAIN lyric line is Chinese:
+chinese:
+  pinyin:                          # auto-generated PINYIN line, shown on top
+    font: HelveticaNeue
+    family: Helvetica Neue
+    size: 65
+  primary:                         # the Chinese lyric
+    font: PingFangSC-Regular       # for Traditional, use: PingFangTC-Regular
+    family: PingFang SC            #                        PingFang TC
+    size: 120
+  translation:                     # e.g. the Dutch translation, shown below
+    font: HelveticaNeue
+    family: Helvetica Neue
+    size: 80
+
+# When the MAIN lyric line is Dutch / English:
+latin:
+  primary:                         # the Dutch/English lyric
+    font: HelveticaNeue
+    family: Helvetica Neue
+    size: 110
+  translation:                     # the Chinese translation, shown below
+    font: PingFangSC-Regular
+    family: PingFang SC
+    size: 95
+
+# Song title (shown small in a corner of every slide)
+title:
+  font: HelveticaNeue
+  family: Helvetica Neue
+  size: 70
+  align: right                     # left | center | right
+  left_margin: 50
+  right_margin: 110                # larger = title sits further from the edge
+  bottom_margin: 20
+
+markers:
+  page_break: "//"                 # a line that is just // starts a new page
+  line_break: "//"                 # // inside a line breaks it there
+  translation_sep: "|｜∣│"          # any of these splits  lyric | translation
