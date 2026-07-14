@@ -271,7 +271,7 @@ def parse_sections(text, default_name="Lyrics", group_tags=None):
     is metadata and skipped. Un-tagged content before the first header is always
     kept. Returns (title, sections, skipped_names)."""
     group_tags = group_tags or _tags.GROUP_TAGS
-    header_re = re.compile(r"^\s*\[(.+?)\]\s*$")
+    header_re = re.compile(r"^\s*[\[\u3010](.+?)[\]\u3011]\s*$")  # ASCII [] or full-width 【】
     title = None
     sections, skipped = [], []
     cur = {"name": default_name, "color": None, "lines": [], "explicit": False}
@@ -739,6 +739,7 @@ def main():
         raw = sys.stdin.read()
     else:
         raw = open(os.path.expanduser(textfile), encoding="utf-8").read()
+    raw = raw.lstrip("\ufeff")   # strip a leading UTF-8 BOM if the editor added one
     if not raw.strip():
         ap.error("no lyrics content (input was empty)")
     out_path = os.path.expanduser(args.out)

@@ -26,7 +26,7 @@ GROUP_TAGS = {
 }
 
 _CN_TAGS = {"标题", "標題", "歌名"}
-_HEADER_RE = re.compile(r"^(\s*)\[(.+?)\](\s*)$")
+_HEADER_RE = re.compile(r"^(\s*)[\[\u3010](.+?)[\]\u3011](\s*)$")  # ASCII [] or full-width 【】
 _NUM_RE = re.compile(r"^(.*?)[\s]*?(\d+)?\s*$")   # optional trailing number
 
 

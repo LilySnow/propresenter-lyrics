@@ -207,6 +207,7 @@ def main():
         lyrics = sys.stdin.read()
     else:
         lyrics = open(os.path.expanduser(args.textfile), encoding="utf-8").read()
+    lyrics = lyrics.lstrip("\ufeff")   # strip a leading UTF-8 BOM if present
 
     # Drop trailing blank lines: the model omits them in its output, which would
     # otherwise trip the "output line count differed" check below.
