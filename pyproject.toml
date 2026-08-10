@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "propresenter-lyrics"
-version = "0.1.2"
+version = "0.1.5"
 description = "Generate ProPresenter 7 (.pro) presentations from lyrics text, with pinyin, translation, and reverence-pronoun tooling."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -12,7 +12,7 @@ license = "Apache-2.0"
 authors = [{ name = "Li Xue" }]
 keywords = ["propresenter", "worship", "lyrics", "pinyin", "protobuf"]
 dependencies = [
-    "protobuf>=4",
+    "protobuf>=6.33.5,<7",
     "pypinyin>=0.44",
     "anthropic>=0.30",
     "opencc>=1.1",

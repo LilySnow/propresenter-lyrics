@@ -366,8 +366,11 @@ def split_pair(raw, seps=DEFAULT_SEPS):
 
 
 def _row(text, tier, cjk=None):
+    is_cjk = has_cjk(text) if cjk is None else cjk
+    if not is_cjk:                       # Latin row -> ，。！？（） etc. become ASCII
+        text = normalize_latin_punct(text)
     return {"text": text, "font": tier["font"], "family": tier["family"],
-            "size": tier["size"], "cjk": has_cjk(text) if cjk is None else cjk}
+            "size": tier["size"], "cjk": is_cjk}
 
 
 def _spacer_row(gap, cfg):
@@ -566,12 +569,38 @@ _ALIGN_ENUM = {
 
 
 def has_cjk(s):
-    """True if the string contains Chinese/Japanese/Korean characters."""
-    return any(
-        "\u3000" <= ch <= "\u9fff" or "\uac00" <= ch <= "\ud7a3"
-        or "\uff00" <= ch <= "\uffef"
-        for ch in s
-    )
+    """True if the string contains actual CJK / Japanese / Korean characters.
+    Full-width punctuation (e.g. the Chinese comma ，U+FF0C) does NOT count, so a
+    Dutch/English line with a stray full-width mark stays non-Chinese."""
+    for ch in s:
+        o = ord(ch)
+        if (0x4E00 <= o <= 0x9FFF          # CJK Unified Ideographs (Han)
+                or 0x3400 <= o <= 0x4DBF       # CJK Extension A
+                or 0xF900 <= o <= 0xFAFF       # CJK Compatibility Ideographs
+                or 0x3040 <= o <= 0x30FF       # Hiragana + Katakana
+                or 0xAC00 <= o <= 0xD7A3       # Hangul syllables
+                or 0x20000 <= o <= 0x2FA1F):   # CJK ideographs, supplementary planes
+            return True
+    return False
+
+
+def normalize_latin_punct(s):
+    """Convert full-width CJK punctuation/letters to their ASCII equivalents.
+    Applied only to non-Chinese (Latin) rows, so Chinese text keeps ，。、 etc."""
+    out = []
+    for ch in s:
+        o = ord(ch)
+        if 0xFF01 <= o <= 0xFF5E:        # fullwidth ! \" # ... ~  ->  ASCII 0x21-0x7E
+            out.append(chr(o - 0xFEE0))
+        elif ch == "\u3000":             # ideographic space -> normal space
+            out.append(" ")
+        elif ch == "\u3001":             # 、 -> ,
+            out.append(",")
+        elif ch == "\u3002":             # 。 -> .
+            out.append(".")
+        else:
+            out.append(ch)
+    return "".join(out)
 
 
 def add_text_element(base, lines, *, font_pt, font_name, font_family,
