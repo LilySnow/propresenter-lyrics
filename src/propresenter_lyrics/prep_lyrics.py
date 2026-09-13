@@ -64,17 +64,43 @@ def to_traditional(text):
     return text, True
 
 
+def _has_cjk(s):
+    """True if the string contains real CJK/kana/hangul (not full-width punctuation)."""
+    for ch in s:
+        o = ord(ch)
+        if (0x4E00 <= o <= 0x9FFF or 0x3400 <= o <= 0x4DBF
+                or 0xF900 <= o <= 0xFAFF or 0x3040 <= o <= 0x30FF
+                or 0xAC00 <= o <= 0xD7A3 or 0x20000 <= o <= 0x2FA1F):
+            return True
+    return False
+
+
+def fix_plural_pronouns(text):
+    """祢/祂 are singular divine pronouns; the plural forms 祢们/祂们 are never valid,
+    so revert them to 你们/他们 (Simplified and Traditional). Deterministic guard
+    against the model over-applying reverence pronouns to plural you/they."""
+    for wrong, right in (("祢们", "你们"), ("祢們", "你們"),
+                         ("祂们", "他们"), ("祂們", "他們")):
+        text = text.replace(wrong, right)
+    return text
+
+
 def build_prompt(lyrics, other_lang, do_pronouns, do_translate):
     rules = []
     if do_pronouns:
         rules.append(
-            "1. REVERENCE PRONOUNS (Chinese text only): wherever a pronoun clearly "
-            "refers to God / Jesus / the Holy Spirit, rewrite it -- second person "
-            "你/你的/你們/你们 -> 祢, and third person 他/她/它/牠 -> 祂. Apply this to "
-            "ALL Chinese in the file: lyric lines, the song title under [Title], "
-            "and any Chinese you produce as a translation. This is a church "
-            "songbook, so treat 你/他 as referring to God by default; only keep "
-            "你/他 unchanged when it clearly refers to people (e.g. 你们要彼此相爱).")
+            "1. REVERENCE PRONOUNS -- applies ONLY to Chinese characters, NEVER "
+            "to other languages. In Chinese text, where a SINGULAR pronoun refers "
+            "to God / Jesus / the Holy Spirit, rewrite it: 你/你的 -> 祢/祢的, and "
+            "他/她/它/牠 -> 祂. Apply this to Chinese lyric lines, the [Title] text, "
+            "and any Chinese you produce as a translation. Treat singular 你/他 as "
+            "God by default; keep them only when they clearly mean a person. Do NOT "
+            "convert the PLURAL forms 你们/你們/他们/他們/她们/她們 (they refer to people; "
+            "祢/祂 have no plural, there is no 祢们). CRITICAL: never change "
+            "Dutch/English words -- leave 'u', 'uw', 'U', 'you', 'your', 'He', "
+            "'Him', 'thee', 'thou' exactly as written. Reverence pronouns are a "
+            "Chinese-only concept and must never appear in a Dutch/English line. "
+            "E.g. 你们要赞美耶和华 keeps 你们; \"Wij prijzen U\" keeps \"U\".")
     if do_translate:
         rules.append(
             f"2. TRANSLATION: append ' | ' then a natural, singable translation:\n"
@@ -164,16 +190,24 @@ def restore_provided_translations(original_text, llm_text, freeze=False):
         return llm_text, False          # line counts differ -> can't align safely
     out = []
     for ol, gl in zip(o, g):
-        if ol.strip() and not _is_header(ol):
-            _, otrans = _split_pair(ol)
-            if otrans is not None:       # user provided a translation here
-                if freeze:
-                    out.append(ol)       # leave the original line entirely alone
-                else:
-                    gprimary, _ = _split_pair(gl)
-                    out.append(gprimary.rstrip() + " | " + otrans)
-                continue
-        out.append(gl)
+        if not ol.strip() or _is_header(ol):
+            out.append(gl)
+            continue
+        oprimary, otrans = _split_pair(ol)
+        if otrans is not None and freeze:
+            out.append(ol)               # provided-translation line: leave untouched
+            continue
+        gprimary, gtrans = _split_pair(gl)
+        # Keep the model's primary ONLY when the original primary is Chinese
+        # (reverence-pronoun fixing is Chinese-only). A Dutch/English primary is
+        # restored verbatim so the model can never rewrite u/uw/you/etc.
+        primary = gprimary if _has_cjk(oprimary) else oprimary
+        # Keep the user's translation if they supplied one, else the model's.
+        trans = otrans if otrans is not None else gtrans
+        if trans:
+            out.append(primary.rstrip() + " | " + trans)
+        else:
+            out.append(primary)
     return "\n".join(out), True
 
 
@@ -248,6 +282,10 @@ def main():
         if not ok:
             sys.stderr.write("WARNING: opencc not installed -> Simplified kept. "
                              "Run: pip install opencc\n")
+
+    # Safeguard: revert any invalid plural reverence forms (祢们/祂们 -> 你们/他们)
+    if do_pronouns:
+        result = fix_plural_pronouns(result)
 
     # (e) stdout by default so it can be piped into make_pro.py
     if args.out:
