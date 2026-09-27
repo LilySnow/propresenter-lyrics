@@ -211,6 +211,59 @@ def restore_provided_translations(original_text, llm_text, freeze=False):
     return "\n".join(out), True
 
 
+def prep_text(lyrics, *, other_lang="Dutch", do_pronouns=True, do_translate=True,
+              tag_fix=True, traditional=True, freeze_provided=False,
+              model=MODEL_DEFAULT, max_tokens=8000):
+    """Run the full prep pipeline on a lyrics string.
+
+    Returns (result_text, warnings). Needs ANTHROPIC_API_KEY in the environment
+    when do_pronouns or do_translate is set. Used by the CLI and the web app.
+    """
+    warnings = []
+    lyrics = lyrics.lstrip("﻿")   # strip a leading UTF-8 BOM if present
+
+    # Drop trailing blank lines: the model omits them in its output, which would
+    # otherwise trip the "output line count differed" check below.
+    _ls = lyrics.splitlines()
+    while _ls and not _ls[-1].strip():
+        _ls.pop()
+    lyrics = "\n".join(_ls)
+
+    # (a) deterministic tag typo correction
+    if tag_fix:
+        lyrics, tag_warnings = _tags.correct_tags(lyrics)
+        warnings.extend(tag_warnings)
+
+    # (b + d) LLM: reverence pronouns + add translation only where missing
+    if do_translate or do_pronouns:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise RuntimeError("ANTHROPIC_API_KEY is not set")
+        prompt = build_prompt(lyrics, other_lang, do_pronouns, do_translate)
+        result = strip_fences(call_claude(prompt, model, max_tokens))
+        # deterministically protect translations the user already supplied
+        result, aligned = restore_provided_translations(
+            lyrics, result, freeze=freeze_provided)
+        if not aligned:
+            warnings.append(
+                "output line count differed from input, so provided "
+                "translations could not be force-preserved. Review the result.")
+    else:
+        result = lyrics
+
+    # (c) Simplified -> Traditional (protecting 祢/祂)
+    if traditional:
+        result, ok = to_traditional(result)
+        if not ok:
+            warnings.append("opencc not installed -> Simplified kept. "
+                            "Run: pip install opencc")
+
+    # Safeguard: revert any invalid plural reverence forms (祢们/祂们 -> 你们/他们)
+    if do_pronouns:
+        result = fix_plural_pronouns(result)
+
+    return result, warnings
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fix tags/pronouns + translate lyrics via Claude")
     ap.add_argument("textfile", help="lyrics file, or '-' to read stdin")
@@ -243,49 +296,27 @@ def main():
         lyrics = open(os.path.expanduser(args.textfile), encoding="utf-8").read()
     lyrics = lyrics.lstrip("\ufeff")   # strip a leading UTF-8 BOM if present
 
-    # Drop trailing blank lines: the model omits them in its output, which would
-    # otherwise trip the "output line count differed" check below.
-    _ls = lyrics.splitlines()
-    while _ls and not _ls[-1].strip():
-        _ls.pop()
-    lyrics = "\n".join(_ls)
-
-    # (a) deterministic tag typo correction (warnings to stderr)
-    if not args.no_tag_fix:
-        lyrics, tag_warnings = _tags.correct_tags(lyrics)
-        for w in tag_warnings:
-            sys.stderr.write("WARNING: %s\n" % w)
-
-    prompt = build_prompt(lyrics, args.other, do_pronouns, do_translate)
     if args.dry_run:
-        print(prompt)
+        _ls = lyrics.splitlines()
+        while _ls and not _ls[-1].strip():
+            _ls.pop()
+        dry = "\n".join(_ls)
+        if not args.no_tag_fix:
+            dry, _ = _tags.correct_tags(dry)
+        print(build_prompt(dry, args.other, do_pronouns, do_translate))
         return
 
-    # (b + d) LLM: reverence pronouns + add translation only where missing
-    if do_translate or do_pronouns:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            sys.exit("Set ANTHROPIC_API_KEY first:  export ANTHROPIC_API_KEY=sk-ant-...")
-        result = strip_fences(call_claude(prompt, args.model, args.max_tokens))
-        # deterministically protect translations the user already supplied
-        result, aligned = restore_provided_translations(
-            lyrics, result, freeze=args.freeze_provided)
-        if not aligned:
-            sys.stderr.write(
-                "WARNING: output line count differed from input, so provided "
-                "translations could not be force-preserved. Review the result.\n")
-    else:
-        result = lyrics
+    if (do_translate or do_pronouns) and not os.environ.get("ANTHROPIC_API_KEY"):
+        sys.exit("Set ANTHROPIC_API_KEY first:  export ANTHROPIC_API_KEY=sk-ant-...")
 
-    # (c) Simplified -> Traditional (protecting 祢/祂)
-    if not args.no_traditional:
-        result, ok = to_traditional(result)
-        if not ok:
-            sys.stderr.write("WARNING: opencc not installed -> Simplified kept. "
-                             "Run: pip install opencc\n")
-
-    # Safeguard: revert any invalid plural reverence forms (祢们/祂们 -> 你们/他们)
-    if do_pronouns:
-        result = fix_plural_pronouns(result)
+    result, warnings = prep_text(
+        lyrics, other_lang=args.other, do_pronouns=do_pronouns,
+        do_translate=do_translate, tag_fix=not args.no_tag_fix,
+        traditional=not args.no_traditional,
+        freeze_provided=args.freeze_provided,
+        model=args.model, max_tokens=args.max_tokens)
+    for w in warnings:
+        sys.stderr.write("WARNING: %s\n" % w)
 
     # (e) stdout by default so it can be piped into make_pro.py
     if args.out:
