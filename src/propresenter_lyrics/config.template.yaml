@@ -16,9 +16,14 @@ stroke:                            # outline drawn around ALL text
 
 translation_gap: 70                # blank space (pt) between a lyric and its translation
 
-margins:                           # keep text this far (px) from the slide edges
-  x: 96                            # left / right
-  y: 54                            # top / bottom
+margins:                           # keep text this far (px) from each slide edge
+  left: 96
+  right: 96
+  top: 54                          # set to 0 to move the text box to the very top
+  bottom: 54
+
+vertical_align: middle             # where lyric text sits in the box: top | middle | bottom
+                                   # use "top" to push lyrics up toward the top edge
 
 # When the MAIN lyric line is Chinese:
 chinese:

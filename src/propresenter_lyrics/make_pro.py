@@ -109,7 +109,9 @@ DEFAULT_CONFIG = {
     "text_color": [255, 255, 255],                 # white
     "stroke":     {"width": 6, "color": [0, 0, 0]}, # outline on ALL text (0 = off)
     "translation_gap": 70,     # blank space (pt) between a lyric and its translation
-    "margins": {"x": 96, "y": 54},   # keep text this far (px) from the slide edges
+    # keep text this far (px) from each slide edge; per-side
+    "margins": {"left": 96, "right": 96, "top": 54, "bottom": 54},
+    "vertical_align": "middle",   # where lyric text sits: top | middle | bottom
     "chinese": {   # when the MAIN lyric line is Chinese
         "pinyin":      {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 65},
         "primary":     {"font": "PingFangSC-Regular","family": "PingFang SC",    "size": 120},
@@ -505,16 +507,25 @@ def add_lyric_element(base, page_lines, cfg):
     gel.name = "TextElement"
     gel.opacity = 1.0
     mgn = cfg.get("margins", {})
+    # per-side margins; fall back to x/y (symmetric) then 0 for back-compat
     mx = float(mgn.get("x", 0)); my = float(mgn.get("y", 0))
-    gel.bounds.origin.x = mx
-    gel.bounds.origin.y = my
-    gel.bounds.size.width = slide_w - 2 * mx
-    gel.bounds.size.height = slide_h - 2 * my
+    ml = float(mgn.get("left",   mx))
+    mr = float(mgn.get("right",  mx))
+    mt = float(mgn.get("top",    my))
+    mb = float(mgn.get("bottom", my))
+    gel.bounds.origin.x = ml
+    gel.bounds.origin.y = mt
+    gel.bounds.size.width = slide_w - ml - mr
+    gel.bounds.size.height = slide_h - mt - mb
     set_rect_path(gel.path)
+
+    valign = str(cfg.get("vertical_align", "middle")).lower()
+    if valign not in ("top", "middle", "bottom"):
+        valign = "middle"
 
     txt = gel.text
     txt.rtf_data = make_multitier_rtf(rows, color, stroke, align="center")
-    txt.vertical_alignment = txt.VERTICAL_ALIGNMENT_MIDDLE
+    txt.vertical_alignment = getattr(txt, "VERTICAL_ALIGNMENT_" + valign.upper())
     _apply_text_attrs(txt, font_name=base_row["font"], font_family=base_row["family"],
                       size=base_row["size"], color_rgb=color, stroke=stroke,
                       align="center")
