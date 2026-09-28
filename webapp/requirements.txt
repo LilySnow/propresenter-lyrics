@@ -1,0 +1,1 @@
+propresenter-lyrics @ git+https://github.com/LilySnow/propresenter-lyrics.git@web-interface
