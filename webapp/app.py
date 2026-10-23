@@ -104,6 +104,7 @@ ss.setdefault("before_prep", None)
 ss.setdefault("prep_changes", [])
 ss.setdefault("upload_id", None)
 ss.setdefault("prep_result", None)
+ss.setdefault("prep_notes", [])
 
 
 def reset_prep():
@@ -112,6 +113,7 @@ def reset_prep():
     ss.prep_changes = []
     ss.before_prep = None
     ss.prep_result = None
+    ss.prep_notes = []
 
 
 def load_example():
@@ -144,6 +146,7 @@ def run_prep():
     text = ss.lyrics
     ss.prep_msgs = []
     ss.prep_changes = []
+    ss.prep_notes = []
     if not text.strip():
         ss.prep_msgs = [("error", "Paste some lyrics first.")]
         return
@@ -189,8 +192,44 @@ def run_prep():
                 "the Lyrics box directly, or click Undo.")
     else:
         done = "Done — nothing needed changing."
-    ss.prep_msgs = [("warning", w) for w in warnings] + [("success", done)]
+    important, ss.prep_notes = sort_notes(warnings)
+    ss.prep_msgs = [("warning", w) for w in important] + [("success", done)]
     ss.prep_changes = changes
+
+
+_TAG_FIX = re.compile(r"^tag \[(.*)\] -> \[(.*)\]$")
+_SKIPPED = re.compile(r"^skipping non-standard section \[(.*)\]")
+
+
+def sort_notes(lines):
+    """Split tool messages into (important, minor).
+
+    Capitalisation/spacing-only tag fixes ([verse 1] -> [Verse 1]) are dropped,
+    real tag typo fixes and skipped sections are minor (shown collapsed), and
+    anything else stays important (shown as a visible warning).
+    """
+    important, minor = [], []
+    for line in lines:
+        m = _TAG_FIX.match(line)
+        if m:
+            old, new = m.groups()
+            if old.replace(" ", "").lower() != new.replace(" ", "").lower():
+                minor.append(f"Fixed tag [{old}] → [{new}]")
+            continue
+        m = _SKIPPED.match(line)
+        if m:
+            minor.append(f"Ignored section [{m.group(1)}] — not a song section "
+                         "(check the spelling if it should be one)")
+            continue
+        important.append(line)
+    return important, minor
+
+
+def show_notes(minor):
+    if minor:
+        with st.expander(f"Notes ({len(minor)})"):
+            for n in minor:
+                st.caption(n)
 
 
 def changed_lines(before, after):
@@ -350,6 +389,8 @@ if needs_claude and HAS_KEY:
 
 for kind, msg in ss.prep_msgs:
     getattr(st, kind)(msg)
+if ss.prep_msgs:
+    show_notes(ss.prep_notes)
 
 if ss.prep_changes and ss.before_prep is not None:
     st.markdown("**What Claude changed**")
@@ -392,8 +433,10 @@ if ss.lyrics.strip():
                                type="primary")
             if not make_pro._HAS_PYPINYIN:
                 st.warning("pypinyin is not installed on the server, so no pinyin was added.")
-        for n in notes:
-            st.info(n)
+        important, minor = sort_notes(notes)
+        for n in important:
+            st.warning(n)
+        show_notes(minor)
         st.caption("In ProPresenter, drag the downloaded file into your Library "
                    "(or use **File → Import**).")
 else:
