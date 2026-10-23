@@ -20,6 +20,7 @@ import contextlib
 import copy
 import datetime as dt
 import hmac
+import html
 import io
 import os
 import re
@@ -96,6 +97,7 @@ ss = st.session_state
 ss.setdefault("lyrics", "")
 ss.setdefault("prep_msgs", [])
 ss.setdefault("before_prep", None)
+ss.setdefault("prep_changes", [])
 ss.setdefault("upload_id", None)
 
 
@@ -113,6 +115,7 @@ def undo_prep():
 def run_prep():
     text = ss.lyrics
     ss.prep_msgs = []
+    ss.prep_changes = []
     if not text.strip():
         ss.prep_msgs = [("error", "Paste some lyrics first.")]
         return
@@ -149,9 +152,33 @@ def run_prep():
         return
     ss.before_prep = text
     ss.lyrics = result
-    ss.prep_msgs = [("warning", w) for w in warnings] + [
-        ("success", "Done. **Please review the text below** — pronouns and "
-                    "translations are theology-sensitive. You can edit it directly.")]
+    changes = changed_lines(text, result)
+    if changes:
+        done = (f"Done — {len(changes)} line(s) changed, listed below. The updated "
+                "lyrics are in the **Lyrics** box above. **Please review them** — "
+                "pronouns and translations are theology-sensitive. You can edit "
+                "the Lyrics box directly, or click Undo.")
+    else:
+        done = "Done — nothing needed changing."
+    ss.prep_msgs = [("warning", w) for w in warnings] + [("success", done)]
+    ss.prep_changes = changes
+
+
+def changed_lines(before, after):
+    """Pairs of (old, new) lines that differ, for the review list."""
+    import difflib
+    a, b = before.splitlines(), after.splitlines()
+    out = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        olds, news = a[i1:i2], b[j1:j2]
+        for k in range(max(len(olds), len(news))):
+            o = olds[k] if k < len(olds) else ""
+            n = news[k] if k < len(news) else ""
+            if o.strip() or n.strip():
+                out.append((o, n))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +309,16 @@ if needs_claude and HAS_KEY:
 
 for kind, msg in ss.prep_msgs:
     getattr(st, kind)(msg)
+
+if ss.prep_changes and ss.before_prep is not None:
+    st.markdown("**What Claude changed**")
+    for old, new in ss.prep_changes:
+        with st.container(border=True):
+            if old:
+                st.markdown(f"<span style='opacity:.6'>Before:</span> {html.escape(old)}",
+                            unsafe_allow_html=True)
+            st.markdown(f"<span style='opacity:.6'>After:</span> <b>{html.escape(new) or '(removed)'}</b>",
+                        unsafe_allow_html=True)
 
 # --- step 2: build ---
 st.header("2 · Download the ProPresenter file")
