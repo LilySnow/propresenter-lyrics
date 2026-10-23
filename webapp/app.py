@@ -103,17 +103,41 @@ ss.setdefault("prep_msgs", [])
 ss.setdefault("before_prep", None)
 ss.setdefault("prep_changes", [])
 ss.setdefault("upload_id", None)
+ss.setdefault("prep_result", None)
+
+
+def reset_prep():
+    """Forget the last Claude run (messages, change list, Undo)."""
+    ss.prep_msgs = []
+    ss.prep_changes = []
+    ss.before_prep = None
+    ss.prep_result = None
 
 
 def load_example():
     ss.lyrics = EXAMPLE
+    reset_prep()
+
+
+def lyrics_changed():
+    """Clear old results when the Lyrics box now holds a different song.
+
+    Small edits while reviewing Claude's output keep the change list and Undo;
+    replacing the text with another song (less than half the same) clears them.
+    """
+    import difflib
+    if not ss.get("prep_result"):
+        ss.prep_msgs = []          # e.g. an old "Wrong password" message
+        return
+    same = difflib.SequenceMatcher(None, ss.prep_result, ss.lyrics, autojunk=False).ratio()
+    if same < 0.5:
+        reset_prep()
 
 
 def undo_prep():
     if ss.before_prep is not None:
         ss.lyrics = ss.before_prep
-        ss.before_prep = None
-        ss.prep_msgs = []
+        reset_prep()
 
 
 def run_prep():
@@ -156,6 +180,7 @@ def run_prep():
         return
     ss.before_prep = text
     ss.lyrics = result
+    ss.prep_result = result
     changes = changed_lines(text, result)
     if changes:
         done = (f"Done — {len(changes)} line(s) changed, listed below. The updated "
@@ -287,10 +312,9 @@ up = st.file_uploader("Upload a lyrics .txt file, or paste below", type=["txt"])
 if up is not None and ss.upload_id != (up.name, up.size):
     ss.upload_id = (up.name, up.size)
     ss.lyrics = up.getvalue().decode("utf-8", errors="replace").lstrip("﻿")
-    ss.before_prep = None
-    ss.prep_msgs = []
+    reset_prep()
 
-st.text_area("Lyrics", key="lyrics", height=340,
+st.text_area("Lyrics", key="lyrics", height=340, on_change=lyrics_changed,
              placeholder="[Title]\nSong name\n\n[Verse 1]\nFirst line | translation\n…")
 
 # --- step 1: Claude ---
