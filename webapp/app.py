@@ -36,6 +36,10 @@ DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "50"))
 MAX_CHARS = int(os.environ.get("MAX_CHARS", "8000"))
 HAS_KEY = bool(os.environ.get("ANTHROPIC_API_KEY"))
 
+# Settings this website starts with, on top of the package defaults.
+# (Text box starts at the very top of the slide.)
+WEB_DEFAULTS = {"margins": {"top": 0}}
+
 EXAMPLE = """[Title]
 使我们合一
 
@@ -191,6 +195,7 @@ with st.sidebar:
         help="A config.yaml made with `pp-make --init-config`. "
              "The settings below start from it.")
     base = copy.deepcopy(make_pro.DEFAULT_CONFIG)
+    base = make_pro._deep_merge(base, WEB_DEFAULTS)   # this site's own defaults
     cfg_key = "default"
     if cfg_file is not None:
         try:
@@ -226,6 +231,17 @@ with st.sidebar:
     valign = st.selectbox("Lyrics position", ["top", "middle", "bottom"],
                           index=["top", "middle", "bottom"].index(base["vertical_align"]),
                           key=k("va"))
+    st.caption("Text box margins (pixels from the slide edge)")
+    m = base["margins"]
+    mc1, mc2, mc3 = st.columns(3)
+    with mc1:
+        m_top = st.number_input("Top", 0, 1000, int(m.get("top", 0)), key=k("mt"),
+                                help="0 = the text box starts at the very top of the slide")
+    with mc2:
+        m_bottom = st.number_input("Bottom", 0, 1000, int(m.get("bottom", 0)), key=k("mb"))
+    with mc3:
+        m_side = st.number_input("Sides", 0, 900, int(m.get("left", 0)), key=k("ms"),
+                                 help="Left and right margin")
     stroke = st.number_input("Text outline width (0 = off)", 0, 50, int(base["stroke"]["width"]), key=k("sw"))
     gap = st.number_input("Gap between lyric and translation", 0, 400, int(base["translation_gap"]), key=k("gap"))
 
@@ -238,6 +254,7 @@ cfg["latin"]["translation"]["size"] = la_trans
 cfg["title"]["size"] = title_size
 cfg["title"]["align"] = title_align
 cfg["vertical_align"] = valign
+cfg["margins"] = {"left": m_side, "right": m_side, "top": m_top, "bottom": m_bottom}
 cfg["stroke"]["width"] = stroke
 cfg["translation_gap"] = gap
 zh_font = ("PingFangTC-Regular", "PingFang TC") if traditional_font else ("PingFangSC-Regular", "PingFang SC")
