@@ -244,9 +244,25 @@ def changed_lines(before, after):
         for k in range(max(len(olds), len(news))):
             o = olds[k] if k < len(olds) else ""
             n = news[k] if k < len(news) else ""
-            if o.strip() or n.strip():
-                out.append((o, n))
+            if not (o.strip() or n.strip()):
+                continue
+            if _is_tag(o) and _is_tag(n):
+                continue   # tag fixes are not Claude's; real typos show in Notes
+            if _same_text(o, n):
+                continue   # only spacing around "|" (or a different bar) changed
+            out.append((o, n))
     return out
+
+
+def _same_text(a, b):
+    """Equal apart from spacing and which translation bar is used."""
+    norm = lambda s: re.sub(r"\s+", " ", re.sub(r"\s*[|｜∣│]\s*", "|", s)).strip()
+    return norm(a) == norm(b)
+
+
+def _is_tag(line):
+    s = line.strip()
+    return s.startswith("[") and s.endswith("]")
 
 
 # ---------------------------------------------------------------------------
