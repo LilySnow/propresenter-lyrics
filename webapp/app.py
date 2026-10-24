@@ -430,7 +430,9 @@ with c1:
     st.checkbox("Add missing translations", value=True, key="opt_translate")
     st.checkbox("Convert to Traditional Chinese", value=False, key="opt_traditional")
 with c2:
-    st.selectbox("Other language in your songs", ["Dutch", "English", "Other…"], key="opt_other")
+    st.selectbox("Translate Chinese lines into", ["Dutch", "English", "Other…"], key="opt_other",
+                 help="Only used for Chinese lines without a translation. English "
+                      "and Dutch lines are always translated into Chinese.")
     if ss.opt_other == "Other…":
         st.text_input("Language name", key="opt_other_custom", placeholder="e.g. German")
 
