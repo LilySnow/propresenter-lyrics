@@ -6,6 +6,49 @@ sections, and per slide the stacked text rows (text, font, size), the text box,
 vertical alignment and the title. Nothing here knows about ProPresenter; the
 .pro writer (make_pro.py) and the HTML preview (preview.py) both draw from
 layout_song(), so they always agree.
+
+    song = layout_song(text, load_config())    # a plain dict, see layout_song
+
+THE LYRICS FORMAT
+
+SECTIONS: start each part with a tag on its own line. Each becomes a named,
+coloured group in ProPresenter:
+
+    [Verse 1]
+    Amazing grace how sweet the sound
+
+    [Chorus]
+    My chains are gone
+
+    [Bridge | #8800cc]      <- optional explicit colour (#hex or r,g,b)
+    You alone
+
+Colours come from the name (Verse=blue, Chorus=red, Bridge=purple, Intro=olive,
+...) unless given after a '|'. Only standard ProPresenter group tags (Verse,
+Chorus, Bridge, Pre-Chorus, Intro, Outro, Tag, ...) become slides; typos such as
+[Chrous] are corrected first, and any other tag ([youtube], [ccli], ...) is
+skipped. With no tags at all, the whole text becomes one group.
+
+SONG TITLE: a [Title] section ([标题] and [歌名] work too; @title / Title: /
+标题： lines are also accepted). It is shown small on every slide, bottom-right
+by default (config: title size / align / margins), and names the document.
+
+TRANSLATIONS + PINYIN: put the translation after a bar on the lyric line
+(| or full-width ｜ and similar).
+    Chinese line  -> PINYIN (automatic, ALL CAPS) on top, the Chinese, then
+                     the translation below.          求你使我们合一 | Breng ons samen
+    Dutch/English -> the line, then its Chinese translation below.
+                                                     Wij brengen U lof | 我们向你献上赞美
+Pinyin needs `pip install pypinyin` (skipped if not installed).
+
+PAGING / LINE BREAKS:
+  - Default: one lyric line per slide.
+  - A line that is just `//` starts a new slide; lines between them share one.
+  - `//` inside a line breaks it there (for long lines).
+
+FONTS / SIZES / OUTLINE / MARGINS / TITLE live in config.yaml (see
+config.template.yaml, or `pp-make --init-config`): one font for Chinese and one
+for Latin text, sizes per kind of line, white text with a black outline.
 """
 
 import os, sys, re

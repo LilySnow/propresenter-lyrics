@@ -1,74 +1,35 @@
 #!/usr/bin/env python3
-"""
-make_pro.py  --  Generate a ProPresenter 7 (.pro) presentation from plain text,
-with full control over FONT SIZE and LINES-PER-SLIDE.
+r"""
+make_pro.py  --  write a ProPresenter 7 (.pro) file from lyrics text.
 
-Requires the compiled protobuf modules (the *_pb2.py files) from
-greyshirtguy/ProPresenter7-Proto on the import path. Compile them once with:
+    pp-make song.txt -o ~/Downloads/song.pro [--config config.yaml]
 
-    git clone https://github.com/greyshirtguy/ProPresenter7-Proto.git
-    cp -r "ProPresenter7-Proto/Proto 19beta" pp_proto
-    pip install protobuf grpcio-tools
-    cd pp_proto && python -m grpc_tools.protoc -I. --python_out=../gen *.proto
+What goes on each slide (sections, pages, pinyin, fonts, sizes, positions) is
+decided in slide_layout.py, which also documents the lyrics format. This file
+only writes that layout in ProPresenter's format; preview.py draws the same
+layout as HTML, so the two always agree.
 
-Then drop this file in the same folder as the generated *_pb2.py files.
+    song = slide_layout.layout_song(text, cfg)
+    pres = write_presentation(song)          # a Presentation protobuf
+    open("song.pro", "wb").write(pres.SerializeToString())
 
-The message path that holds slide text is:
+THE .PRO FORMAT. A .pro file is a protobuf message. The compiled modules
+(*_pb2.py) ship in the proto/ folder; scripts/compile_protos.sh regenerates
+them from greyshirtguy/ProPresenter7-Proto if a future ProPresenter version
+changes the format. The slide text lives at:
+
     Presentation
       .cues[i]                                  -> one entry == one SLIDE
         .actions[j].slide.presentation.base_slide
           .elements[k].element.text.rtf_data    -> the text, as RTF bytes
+      .cue_groups[g]                            -> a named, coloured section
 
-Font size is an RTF code:  \fsN  where N = point_size * 2  (half-points).
+Each text box carries its text twice: as RTF (fonts per line, font size as
+\fsN with N = points x 2, outline as \strokewidth) and as default attributes
+(font, size, colour, outline) taken from the largest line.
 
-GROUPS: mark sections in your text file with [Header] lines and each becomes a
-named, coloured group in ProPresenter:
-
-    [Verse 1]
-    Amazing grace how sweet the sound
-    That saved a wretch like me
-
-    [Chorus]
-    My chains are gone
-
-    [Bridge | #8800cc]      <- optional explicit colour (#hex or r,g,b)
-    You alone
-
-Colours are auto-assigned from the name (Verse=blue, Chorus=red, Bridge=purple,
-Intro=olive, ...) unless you give one after a '|'. With no [headers] at all the
-whole file becomes a single group.
-
-SONG TITLE: mark it with a [Title] section (same bracket style as groups). It is
-placed small in the bottom-left of every slide and used as the document name:
-
-    [Title]
-    使我们合一
-
-    [Verse 1]
-    ...
-
-[标题] and [歌名] work too. (Also still accepted: @title / Title: / 标题： lines.)
-Footer size is set with --title-size (default 50pt). CJK text (in the title or
-the lyrics) automatically uses a Chinese-capable font (PingFang SC).
-
-TRANSLATIONS + PINYIN: put the translation after a '|' on each lyric line.
-    Chinese primary  ->  PINYIN (auto, ALL CAPS) on top, 中文 at 100pt,
-                         the translation below at 70pt.
-        求你使我们合一 | Breng ons samen
-    Dutch/English primary -> primary at 100pt, Chinese translation below at 90pt
-        Wij brengen U lof | 我们向你献上赞美
-Pinyin needs `pip install pypinyin` (skipped automatically if not installed).
-
-PAGING / LINE BREAKS:
-  - Default: one lyric line per page.
-  - A standalone `//` line forces a PAGE break (lines between breaks share a page).
-  - A `//` inside a line forces a visual LINE break there (for long lines).
-
-FONTS / SIZES / STROKE / TITLE all live in config.yaml (edit that, not the code):
-  Chinese lines -> pinyin 65 / 中文 120 / translation 80
-  Dutch/English -> primary 105 / Chinese translation 95
-  Title 70 (bottom-right), 6px black stroke on all text, white fill.
-  Pass a different file with --config myconfig.yaml.
+For backward compatibility the layout names (load_config, DEFAULT_CONFIG,
+has_cjk, ...) can still be imported from here.
 """
 
 import sys, re, uuid
