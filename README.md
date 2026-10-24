@@ -5,12 +5,16 @@ automatic pinyin, bilingual layout, reverence-pronoun handling, and
 Simplified→Traditional conversion. Built for Chinese / Dutch / English worship
 teams, but useful for any multilingual lyrics.
 
-Two commands:
+Three commands:
 
 - **`pp-make`** — turns a lyrics text file into a `.pro` (deterministic, offline).
+- **`pp-preview`** — the same slides as an HTML page you can open in any
+  browser, to check them without ProPresenter (offline, self-contained).
 - **`pp-prep`** — optional pre-pass that uses Claude to fix reverence
   pronouns and add translations, plus deterministic tag-typo fixing and
   Simplified→Traditional conversion.
+
+There is also a [web interface](webapp/) for people who don't use a terminal.
 
 Validated against ProPresenter **21.4**.
 
@@ -45,9 +49,28 @@ pp-make song.txt -o ~/Downloads/song.pro
 
 # let Claude fix pronouns / translate / convert, then build, in one pipe:
 pp-prep song.txt | pp-make -o ~/Downloads/song.pro
+
+# check the slides in a browser first (writes song.html next to song.txt):
+pp-preview song.txt
 ```
 
-Both read a file, or stdin when you omit the filename.
+`pp-make` and `pp-prep` read a file, or stdin when you omit the filename
+(`pp-preview` uses `-` for stdin). All take `--config`.
+
+### How it fits together
+
+`slide_layout.py` decides what goes on each slide (sections, pages, pinyin,
+fonts, sizes, positions) and knows nothing about ProPresenter. `make_pro.py`
+writes that layout as a `.pro` file; `preview.py` draws the same layout as HTML.
+Because both start from `slide_layout.layout_song()`, the preview always shows
+the same slide breaks and text as the `.pro`:
+
+```python
+from propresenter_lyrics import slide_layout, make_pro, preview
+song = slide_layout.layout_song(text, slide_layout.load_config())
+pro_bytes = make_pro.write_presentation(song).SerializeToString()
+html = preview.render_html(song)
+```
 
 ## Lyrics file format
 

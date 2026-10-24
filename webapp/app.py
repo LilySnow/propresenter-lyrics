@@ -16,20 +16,19 @@ Run locally:
     streamlit run webapp/app.py
 """
 
-import contextlib
 import copy
 import datetime as dt
 import hmac
 import html
-import io
 import os
 import re
 import threading
 
 import streamlit as st
+import streamlit.components.v1 as components
 import yaml
 
-from propresenter_lyrics import make_pro, prep_lyrics
+from propresenter_lyrics import make_pro, prep_lyrics, preview, slide_layout
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "50"))
@@ -472,15 +471,14 @@ st.caption("Adjust fonts and sizes in the sidebar (tap **>** at the top left on 
 
 
 def build(text, cfg):
-    notes = io.StringIO()
-    with contextlib.redirect_stderr(notes):
-        pres = make_pro.build_presentation(None, text, cfg)
-    return pres, [n.removeprefix("note: ") for n in notes.getvalue().splitlines() if n.strip()]
+    """Lay out the song once; the .pro file and the preview are both made from it."""
+    song = slide_layout.layout_song(text, cfg)
+    return make_pro.write_presentation(song), song["notes"], song
 
 
 if ss.lyrics.strip():
     try:
-        pres, notes = build(ss.lyrics, cfg)
+        pres, notes, song = build(ss.lyrics, cfg)
     except Exception as e:
         st.error(f"Could not build the presentation: {e}")
     else:
@@ -518,6 +516,19 @@ if ss.lyrics.strip():
         show_notes(minor)
         st.caption("In ProPresenter, drag the downloaded file into your Library "
                    "(or use **File → Import**).")
+        n_slides = preview.slide_count(song)
+        if n_slides:
+            with st.expander(f"👁 Preview — {n_slides} slides", expanded=True):
+                st.caption("Approximate: fonts and line spacing can look slightly "
+                           "different in ProPresenter. Slide breaks, text and sizes "
+                           "match the file. A red frame means the text is taller "
+                           "than its text box.")
+                page = preview.render_html(song, standalone=False)
+                if hasattr(st, "iframe"):            # Streamlit 1.5x+: sizes itself
+                    st.iframe(page, height="content")
+                else:                                # older Streamlit
+                    components.html(page, height=min(40 + (n_slides + 1) // 2 * 215, 2400),
+                                    scrolling=True)
 else:
     st.info("Paste or upload lyrics above to get started.")
 
