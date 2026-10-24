@@ -105,6 +105,8 @@ ss.setdefault("prep_changes", [])
 ss.setdefault("upload_id", None)
 ss.setdefault("prep_result", None)
 ss.setdefault("prep_notes", [])
+ss.setdefault("upload_name", None)   # name of the uploaded .txt (no extension)
+ss.setdefault("lyrics_seen", "")     # Lyrics box text at the end of the last run
 
 
 def reset_prep():
@@ -118,7 +120,13 @@ def reset_prep():
 
 def load_example():
     ss.lyrics = EXAMPLE
+    ss.upload_name = None
     reset_prep()
+
+
+def _similarity(a, b):
+    import difflib
+    return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
 
 
 def lyrics_changed():
@@ -127,12 +135,13 @@ def lyrics_changed():
     Small edits while reviewing Claude's output keep the change list and Undo;
     replacing the text with another song (less than half the same) clears them.
     """
-    import difflib
+    # A different song typed/pasted over an uploaded file: stop using its name.
+    if ss.upload_name and _similarity(ss.lyrics_seen, ss.lyrics) < 0.5:
+        ss.upload_name = None
     if not ss.get("prep_result"):
         ss.prep_msgs = []          # e.g. an old "Wrong password" message
         return
-    same = difflib.SequenceMatcher(None, ss.prep_result, ss.lyrics, autojunk=False).ratio()
-    if same < 0.5:
+    if _similarity(ss.prep_result, ss.lyrics) < 0.5:
         reset_prep()
 
 
@@ -364,8 +373,13 @@ with st.expander("How to write the lyrics"):
 
 # --- input ---
 up = st.file_uploader("Upload a lyrics .txt file, or paste below", type=["txt"])
-if up is not None and ss.upload_id != (up.name, up.size):
-    ss.upload_id = (up.name, up.size)
+# file_id is new for every upload, so uploading the same file again reloads it
+up_id = getattr(up, "file_id", None) or (up and (up.name, up.size))
+if up is None:
+    ss.upload_id = None          # box cleared: uploading the same file again reloads it
+elif ss.upload_id != up_id:
+    ss.upload_id = up_id
+    ss.upload_name = os.path.splitext(up.name)[0]
     ss.lyrics = up.getvalue().decode("utf-8", errors="replace").lstrip("﻿")
     reset_prep()
 
@@ -440,13 +454,17 @@ if ss.lyrics.strip():
             st.warning("No slides found. Make sure lyrics are under a tag like "
                        "`[Verse 1]` or `[Chorus]`.")
         else:
-            name = pres.name if pres.name and pres.name != "Generated Song" else "song"
+            if ss.upload_name:                       # same name as the uploaded .txt
+                name = ss.upload_name
+            else:                                    # otherwise the song title
+                name = pres.name if pres.name and pres.name != "Generated Song" else "song"
             fname = re.sub(r'[\\/:*?"<>|]+', "_", name).strip() or "song"
             groups = ", ".join(g.group.name for g in pres.cue_groups)
             st.write(f"**{pres.name}** — {len(pres.cues)} slides ({groups})")
             st.download_button("⬇ Download .pro file", data=pres.SerializeToString(),
                                file_name=f"{fname}.pro", mime="application/octet-stream",
                                type="primary")
+            st.caption(f"File name: {fname}.pro")
             if not make_pro._HAS_PYPINYIN:
                 st.warning("pypinyin is not installed on the server, so no pinyin was added.")
         important, minor = sort_notes(notes)
@@ -457,3 +475,5 @@ if ss.lyrics.strip():
                    "(or use **File → Import**).")
 else:
     st.info("Paste or upload lyrics above to get started.")
+
+ss.lyrics_seen = ss.lyrics   # remembered for the next edit (see lyrics_changed)
