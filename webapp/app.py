@@ -467,7 +467,7 @@ if ss.prep_changes and ss.before_prep is not None:
                         unsafe_allow_html=True)
 
 # --- step 2: build ---
-st.header("2 · Download the ProPresenter file")
+st.header("2 · Download")
 st.caption("Adjust fonts and sizes in the sidebar (tap **>** at the top left on a phone).")
 
 
@@ -495,10 +495,21 @@ if ss.lyrics.strip():
             fname = re.sub(r'[\\/:*?"<>|]+', "_", name).strip() or "song"
             groups = ", ".join(g.group.name for g in pres.cue_groups)
             st.write(f"**{pres.name}** — {len(pres.cues)} slides ({groups})")
-            st.download_button("⬇ Download .pro file", data=pres.SerializeToString(),
-                               file_name=f"{fname}.pro", mime="application/octet-stream",
-                               type="primary")
-            st.caption(f"File name: {fname}.pro")
+            d1, d2 = st.columns(2)
+            with d1:
+                st.download_button("⬇ Download .pro file", data=pres.SerializeToString(),
+                                   file_name=f"{fname}.pro", mime="application/octet-stream",
+                                   type="primary", use_container_width=True)
+            with d2:
+                # the lyrics as they are now (after Claude and any edits)
+                txt = ss.lyrics.rstrip("\n") + "\n"
+                st.download_button("⬇ Download lyrics .txt", data=txt.encode("utf-8"),
+                                   file_name=f"{fname}.txt", mime="text/plain",
+                                   use_container_width=True,
+                                   help="The text in the Lyrics box, including Claude's "
+                                        "changes and your edits. Keep it to make "
+                                        "changes later.")
+            st.caption(f"File names: {fname}.pro and {fname}.txt")
             if not make_pro._HAS_PYPINYIN:
                 st.warning("pypinyin is not installed on the server, so no pinyin was added.")
         important, minor = sort_notes(notes)
