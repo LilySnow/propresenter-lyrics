@@ -299,9 +299,30 @@ with st.sidebar:
 
     k = lambda name: f"{name}-{cfg_key}"   # widgets reset when a new file is loaded
 
-    traditional_font = st.checkbox(
-        "Use Traditional Chinese font (PingFang TC)",
-        value="TC" in base["chinese"]["primary"]["font"], key=k("tc"))
+    st.subheader("Fonts")
+    resolved = make_pro.resolve_fonts(base)
+
+    def font_choice(label, kind, tier, help_text, key):
+        """Drop-down of the Mac fonts for one kind; starts at the config's font."""
+        names = list(make_pro.FONT_CATALOG[kind])
+        current_ps = tier["font"]
+        start = next((n for n, (ps, _) in make_pro.FONT_CATALOG[kind].items()
+                      if ps == current_ps), None)
+        if start is None:                     # a custom font from an uploaded config
+            start = tier.get("family") or current_ps
+            names.insert(0, start)
+        return st.selectbox(label, names, index=names.index(start), key=k(key),
+                            help=help_text), start
+
+    zh_font, zh_font_start = font_choice(
+        "Chinese font", "chinese", resolved["chinese"]["primary"],
+        "All Chinese text: Chinese lyrics, Chinese translations and a Chinese title. "
+        "TC = Traditional Chinese.", "fzh")
+    la_font, la_font_start = font_choice(
+        "Latin font", "latin", resolved["latin"]["primary"],
+        "Pinyin, Dutch/English lyrics and translations, and the song title.", "fla")
+    st.caption("These fonts come with every Mac. If a font isn't installed on the "
+               "computer running ProPresenter, it shows a different one.")
 
     st.subheader("Chinese lyric lines")
     zh_pinyin = st.number_input("Pinyin size", 10, 400, int(base["chinese"]["pinyin"]["size"]), key=k("zp"))
@@ -346,10 +367,21 @@ cfg["vertical_align"] = valign
 cfg["margins"] = {"left": m_side, "right": m_side, "top": m_top, "bottom": m_bottom}
 cfg["stroke"]["width"] = stroke
 cfg["translation_gap"] = gap
-zh_font = ("PingFangTC-Regular", "PingFang TC") if traditional_font else ("PingFangSC-Regular", "PingFang SC")
-for tier in (cfg["chinese"]["primary"], cfg["latin"]["translation"]):
-    if tier["font"].startswith("PingFang"):
-        tier["font"], tier["family"] = zh_font
+# Fonts: a changed drop-down applies to every tier of that kind. An unchanged one
+# leaves the config as it is (so per-line fonts from an uploaded file survive).
+cfg.setdefault("fonts", {})
+for kind, chosen, start in (("chinese", zh_font, zh_font_start),
+                            ("latin", la_font, la_font_start)):
+    if chosen == start:
+        continue
+    cfg["fonts"][kind] = chosen
+    for path, tier_kind in make_pro._TIER_KIND.items():
+        if tier_kind == kind:
+            tier = cfg
+            for p in path:
+                tier = tier[p]
+            tier.pop("font", None)
+            tier.pop("family", None)
 
 
 # ---------------------------------------------------------------------------

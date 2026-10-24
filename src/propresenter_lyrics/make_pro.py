@@ -103,7 +103,94 @@ import _tags
 # ---------------------------------------------------------------------------
 # Configuration (all easily-tweakable settings live here / in config.yaml)
 # ---------------------------------------------------------------------------
-# Each tier is {"font": <rtf/postscript name>, "family": <display name>, "size": pt}.
+# Fonts that come with every Mac, by the name used in config.yaml.
+# Value: (PostScript name ProPresenter's RTF needs, family name).
+# A name not in this list is used as-is (for a font you installed yourself).
+FONT_CATALOG = {
+    "chinese": {
+        "PingFang SC":          ("PingFangSC-Regular",  "PingFang SC"),
+        "PingFang SC Medium":   ("PingFangSC-Medium",   "PingFang SC"),
+        "PingFang SC Semibold": ("PingFangSC-Semibold", "PingFang SC"),
+        "PingFang TC":          ("PingFangTC-Regular",  "PingFang TC"),
+        "PingFang TC Medium":   ("PingFangTC-Medium",   "PingFang TC"),
+        "PingFang TC Semibold": ("PingFangTC-Semibold", "PingFang TC"),
+        "Heiti SC":             ("STHeitiSC-Medium",    "Heiti SC"),
+        "Heiti TC":             ("STHeitiTC-Medium",    "Heiti TC"),
+        "Songti SC":            ("STSongti-SC-Regular", "Songti SC"),
+        "Songti SC Bold":       ("STSongti-SC-Bold",    "Songti SC"),
+        "Songti TC":            ("STSongti-TC-Regular", "Songti TC"),
+        "Songti TC Bold":       ("STSongti-TC-Bold",    "Songti TC"),
+        "Hiragino Sans GB":     ("HiraginoSansGB-W3",   "Hiragino Sans GB"),
+        "Hiragino Sans GB W6":  ("HiraginoSansGB-W6",   "Hiragino Sans GB"),
+    },
+    "latin": {
+        "Helvetica Neue":        ("HelveticaNeue",        "Helvetica Neue"),
+        "Helvetica Neue Medium": ("HelveticaNeue-Medium", "Helvetica Neue"),
+        "Helvetica Neue Bold":   ("HelveticaNeue-Bold",   "Helvetica Neue"),
+        "Helvetica":             ("Helvetica",            "Helvetica"),
+        "Helvetica Bold":        ("Helvetica-Bold",       "Helvetica"),
+        "Arial":                 ("ArialMT",              "Arial"),
+        "Arial Bold":            ("Arial-BoldMT",         "Arial"),
+        "Avenir Next":           ("AvenirNext-Regular",   "Avenir Next"),
+        "Avenir Next Demi Bold": ("AvenirNext-DemiBold",  "Avenir Next"),
+        "Avenir Next Bold":      ("AvenirNext-Bold",      "Avenir Next"),
+        "Futura":                ("Futura-Medium",        "Futura"),
+        "Gill Sans":             ("GillSans",             "Gill Sans"),
+        "Optima":                ("Optima-Regular",       "Optima"),
+        "Georgia":               ("Georgia",              "Georgia"),
+        "Times New Roman":       ("TimesNewRomanPSMT",    "Times New Roman"),
+        "Verdana":               ("Verdana",              "Verdana"),
+        "Trebuchet MS":          ("TrebuchetMS",          "Trebuchet MS"),
+    },
+}
+
+# Which font (chinese / latin) each text tier uses, unless the tier sets its own.
+_TIER_KIND = {
+    ("chinese", "pinyin"): "latin",
+    ("chinese", "primary"): "chinese",
+    ("chinese", "translation"): "latin",    # e.g. the Dutch translation
+    ("latin", "primary"): "latin",
+    ("latin", "translation"): "chinese",    # the Chinese translation
+    ("title",): "latin",                    # a Chinese title uses the Chinese font
+}
+
+
+def font_names(name, kind):
+    """(PostScript name, family) for a font given by its config.yaml name.
+    Accepts catalog names (any case) and PostScript names; anything else is
+    used as-is for both (a font you installed yourself)."""
+    want = str(name).strip().lower()
+    for k in [kind] + [x for x in FONT_CATALOG if x != kind]:
+        for key, val in FONT_CATALOG[k].items():
+            if want in (key.lower(), val[0].lower()):
+                return val
+    return str(name).strip(), str(name).strip()
+
+
+def resolve_fonts(cfg):
+    """Return a copy of cfg where every text tier has "font" and "family".
+
+    Tiers that already set "font" (older config files) keep it; the others get
+    the font from the "fonts" section (chinese / latin)."""
+    import copy
+    cfg = copy.deepcopy(cfg)
+    fonts = cfg.get("fonts") or {}
+    for path, kind in _TIER_KIND.items():
+        tier = cfg
+        for k in path:
+            tier = tier.setdefault(k, {})
+        if not tier.get("font"):
+            name = fonts.get(kind) or DEFAULT_CONFIG["fonts"][kind]
+            tier["font"], tier["family"] = font_names(name, kind)
+        elif not tier.get("family"):
+            tier["family"] = font_names(tier["font"], kind)[1]
+    cfg["_cjk_font"] = font_names(fonts.get("chinese") or DEFAULT_CONFIG["fonts"]["chinese"],
+                                  "chinese")
+    return cfg
+
+
+# Each tier is {"size": pt} plus, optionally, its own "font" (PostScript name)
+# and "family"; without them the tier uses the "fonts" section (see resolve_fonts).
 DEFAULT_CONFIG = {
     "slide":      {"width": 1920, "height": 1080},
     "text_color": [255, 255, 255],                 # white
@@ -112,16 +199,18 @@ DEFAULT_CONFIG = {
     # keep text this far (px) from each slide edge; per-side
     "margins": {"left": 96, "right": 96, "top": 54, "bottom": 54},
     "vertical_align": "middle",   # where lyric text sits: top | middle | bottom
+    # chinese: all Chinese text; latin: pinyin, Dutch/English text and the title
+    "fonts": {"chinese": "PingFang SC", "latin": "Helvetica Neue"},
     "chinese": {   # when the MAIN lyric line is Chinese
-        "pinyin":      {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 65},
-        "primary":     {"font": "PingFangSC-Regular","family": "PingFang SC",    "size": 120},
-        "translation": {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 80},
+        "pinyin":      {"size": 65},
+        "primary":     {"size": 120},
+        "translation": {"size": 80},
     },
     "latin": {     # when the MAIN lyric line is Dutch / English
-        "primary":     {"font": "HelveticaNeue",     "family": "Helvetica Neue", "size": 110},
-        "translation": {"font": "PingFangSC-Regular","family": "PingFang SC",    "size": 95},
+        "primary":     {"size": 110},
+        "translation": {"size": 95},
     },
-    "title": {"font": "HelveticaNeue", "family": "Helvetica Neue", "size": 70,
+    "title": {"size": 70,
               "align": "right", "left_margin": 50, "right_margin": 110,
               "bottom_margin": 20},
     "markers": {"page_break": "//", "line_break": "//",
@@ -332,10 +421,10 @@ CJK_FONT_NAME = "PingFangSC-Regular"
 CJK_FONT_FAMILY = "PingFang SC"
 
 
-def pick_font(text, latin_name, latin_family):
-    """Use a CJK font if the text has CJK glyphs, else the requested Latin font."""
+def pick_font(text, latin_name, latin_family, cjk_font=None):
+    """Use the Chinese font if the text has CJK glyphs, else the given Latin font."""
     if has_cjk(text):
-        return CJK_FONT_NAME, CJK_FONT_FAMILY
+        return cjk_font or (CJK_FONT_NAME, CJK_FONT_FAMILY)
     return latin_name, latin_family
 
 
@@ -678,6 +767,7 @@ def build_presentation(name, text, cfg, *, group_name="Lyrics", footer_title=Non
     if title and (name is None or name == "Generated Song"):
         name = title
 
+    cfg = resolve_fonts(cfg)
     slide_w = float(cfg["slide"]["width"]); slide_h = float(cfg["slide"]["height"])
     color = cfg["text_color"]; stroke = cfg["stroke"]
     tcfg = cfg["title"]
@@ -692,7 +782,8 @@ def build_presentation(name, text, cfg, *, group_name="Lyrics", footer_title=Non
     ai.application_version.major_version = 7
 
     # a CJK title needs a font with the glyphs
-    title_font, title_family = pick_font(title or "", tcfg["font"], tcfg["family"])
+    title_font, title_family = pick_font(title or "", tcfg["font"], tcfg["family"],
+                                         cfg["_cjk_font"])
 
     for sec in sections:
         sec_cue_ids = []

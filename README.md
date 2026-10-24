@@ -81,7 +81,17 @@ https://youtu.be/xxxx
 ## Configuration
 
 All fonts, sizes, stroke, title position, and markers live in a **YAML** config
-(commented, easy to edit). Create one you can edit with:
+(commented, easy to edit). Fonts are set once for Chinese and once for Latin
+text (pinyin, Dutch/English, title):
+
+```yaml
+fonts:
+  chinese: PingFang SC     # or PingFang TC, Songti SC, Heiti SC, Hiragino Sans GB, ...
+  latin: Helvetica Neue    # or Arial, Avenir Next, Futura, Gill Sans, Georgia, ...
+```
+
+The template lists the fonts that come with every Mac. ProPresenter can only show
+fonts installed on the computer that runs it. Create a config you can edit with:
 
 ```bash
 pp-make --init-config                 # ~/.config/propresenter-lyrics/config.yaml

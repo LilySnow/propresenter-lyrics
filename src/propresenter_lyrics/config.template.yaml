@@ -25,36 +25,42 @@ margins:                           # keep text this far (px) from each slide edg
 vertical_align: middle             # where lyric text sits in the box: top | middle | bottom
                                    # use "top" to push lyrics up toward the top edge
 
-# When the MAIN lyric line is Chinese:
+# Fonts. ProPresenter can only show fonts installed on the computer that runs
+# it; the fonts listed below come with every Mac.
+fonts:
+  chinese: PingFang SC             # all Chinese text (lyrics, translations, a Chinese title)
+  # PingFang SC, PingFang SC Medium, PingFang SC Semibold,
+  # PingFang TC, PingFang TC Medium, PingFang TC Semibold   (TC = Traditional)
+  # Heiti SC, Heiti TC, Songti SC, Songti SC Bold, Songti TC, Songti TC Bold,
+  # Hiragino Sans GB, Hiragino Sans GB W6
+  latin: Helvetica Neue            # pinyin, Dutch/English text and the song title
+  # Helvetica Neue, Helvetica Neue Medium, Helvetica Neue Bold,
+  # Helvetica, Helvetica Bold, Arial, Arial Bold,
+  # Avenir Next, Avenir Next Demi Bold, Avenir Next Bold, Futura, Gill Sans,
+  # Optima, Georgia, Times New Roman, Verdana, Trebuchet MS
+  # A font you installed yourself also works: use its exact name from Font Book.
+
+# Sizes. When the MAIN lyric line is Chinese:
 chinese:
   pinyin:                          # auto-generated PINYIN line, shown on top
-    font: HelveticaNeue
-    family: Helvetica Neue
     size: 65
   primary:                         # the Chinese lyric
-    font: PingFangSC-Regular       # for Traditional, use: PingFangTC-Regular
-    family: PingFang SC            #                        PingFang TC
     size: 120
   translation:                     # e.g. the Dutch translation, shown below
-    font: HelveticaNeue
-    family: Helvetica Neue
     size: 80
 
 # When the MAIN lyric line is Dutch / English:
 latin:
   primary:                         # the Dutch/English lyric
-    font: HelveticaNeue
-    family: Helvetica Neue
     size: 110
   translation:                     # the Chinese translation, shown below
-    font: PingFangSC-Regular
-    family: PingFang SC
     size: 95
+
+# (Advanced: any line above can also set its own font, which then wins over
+#  the fonts section, e.g.  pinyin: {size: 65, font: Futura-Medium, family: Futura})
 
 # Song title (shown small in a corner of every slide)
 title:
-  font: HelveticaNeue
-  family: Helvetica Neue
   size: 70
   align: right                     # left | center | right
   left_margin: 50
