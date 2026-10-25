@@ -100,7 +100,8 @@ def _slide_div(sl, song):
 
 
 def slide_count(song):
-    return sum(len(sec["slides"]) for sec in song["sections"])
+    """Slides as shown, following [Order] (repeats counted)."""
+    return sum(1 for _ in slide_layout.play_slides(song))
 
 
 def render_html(song, *, page_title=None, min_tile_px=260, standalone=True):
@@ -112,18 +113,22 @@ def render_html(song, *, page_title=None, min_tile_px=260, standalone=True):
     min_tile_px = int(_num(min_tile_px, 260))
     slide_w, slide_h = (_num(v, d) for v, d in zip(song["slide_size"], (1920, 1080)))
     tiles, i = [], 0
-    for sec in song["sections"]:
+    for item in slide_layout.play_slides(song):     # [Order] if given
+        sec, sl = item["section"], item["slide"]
         r, g, b = _rgb([_num(c) * 255 for c in sec["color"]], (102, 102, 102))
-        for sl in sec["slides"]:
-            i += 1
-            tiles.append(
-                f'<div class="tile"><div class="label"><span class="chip" '
-                f'style="background:rgb({r},{g},{b})">{_html.escape(sec["name"])}</span>'
-                f'<span class="num">{i}</span><span class="warn">⚠ text too tall</span></div>'
-                f'<div class="stage">{_slide_div(sl, song)}</div></div>')
+        i += 1
+        tiles.append(
+            f'<div class="tile"><div class="label"><span class="chip" '
+            f'style="background:rgb({r},{g},{b})">{_html.escape(sec["name"])}</span>'
+            f'<span class="num">{i}</span><span class="warn">⚠ text too tall</span></div>'
+            f'<div class="stage">{_slide_div(sl, song)}</div></div>')
     title = _html.escape(page_title or song["title"] or "Slides")
-    heading = (f'<h1>{title}</h1><p class="sub">{i} slides · preview — fonts and line '
-               f'spacing can differ slightly in ProPresenter</p>' if standalone else "")
+    order = ""
+    if song.get("order"):
+        order = " · order: " + _html.escape(" ".join(
+            slide_layout.section_code(song["sections"][si]["name"]) for si in song["order"]))
+    heading = (f'<h1>{title}</h1><p class="sub">{i} slides{order} · preview — fonts and '
+               f'line spacing can differ slightly in ProPresenter</p>' if standalone else "")
     pad = "24px" if standalone else "0"
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

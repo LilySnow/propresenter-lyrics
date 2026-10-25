@@ -16,6 +16,9 @@ _CANON_LOWER = {t.lower(): t for t in CANON_TAGS}
 # tags treated as the song title (its text is the title, not a slide group)
 TITLE_TAGS = {"title", "标题", "標題", "歌名"}
 
+# tag holding the order in which sections are played, e.g. [Order] V1 C V2 C
+ORDER_TAGS = {"order", "顺序", "順序", "arrangement"}
+
 # standard ProPresenter group tags (match on first word, lower-cased) that
 # become slides. Anything else is metadata and skipped by make_pro.
 GROUP_TAGS = {

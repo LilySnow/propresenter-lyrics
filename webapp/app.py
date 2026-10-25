@@ -398,6 +398,10 @@ with st.expander("How to write the lyrics"):
 - `//` inside a line = line break. `//` on its own line = new slide.
   Otherwise each lyric line gets its own slide.
 - Chinese lines automatically get **pinyin** on top.
+- **Song order:** add `[Order] V1 C V2 C B C` to play sections in that order,
+  repeats included. Codes: V1 = Verse 1, C = Chorus, C2 = Chorus 2,
+  PC = Pre-Chorus, B = Bridge, I = Intro, O = Outro, T = Tag. Without it,
+  sections play in the order they are written.
 - Other tags such as `[youtube]` or `[ccli]` are ignored.
 """)
     st.button("Load an example", on_click=load_example)
@@ -492,7 +496,12 @@ if ss.lyrics.strip():
                 name = pres.name if pres.name and pres.name != "Generated Song" else "song"
             fname = re.sub(r'[\\/:*?"<>|]+', "_", name).strip() or "song"
             groups = ", ".join(g.group.name for g in pres.cue_groups)
-            st.write(f"**{pres.name}** — {len(pres.cues)} slides ({groups})")
+            summary = f"**{pres.name}** — {len(pres.cues)} slides ({groups})"
+            if song.get("order"):
+                codes = " ".join(slide_layout.section_code(song["sections"][i]["name"])
+                                 for i in song["order"])
+                summary += f" · order: **{codes}** ({preview.slide_count(song)} slides shown)"
+            st.write(summary)
             d1, d2 = st.columns(2)
             with d1:
                 st.download_button("⬇ Download .pro file", data=pres.SerializeToString(),

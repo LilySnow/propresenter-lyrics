@@ -29,6 +29,11 @@ Chorus, Bridge, Pre-Chorus, Intro, Outro, Tag, ...) become slides; typos such as
 [Chrous] are corrected first, and any other tag ([youtube], [ccli], ...) is
 skipped. With no tags at all, the whole text becomes one group.
 
+SONG ORDER: an [Order] section lists the sections in play order, repeats
+included:  [Order] V1 PC C V2 C B C   (V1 = Verse 1, C = Chorus, PC = Pre-Chorus,
+B = Bridge; full names separated by commas also work). Without it, sections
+play in the order they are written. See parse_order / resolve_order.
+
 SONG TITLE: a [Title] section ([标题] and [歌名] work too; @title / Title: /
 标题： lines are also accepted). It is shown small on every slide, bottom-right
 by default (config: title size / align / margins), and names the document.
@@ -517,6 +522,96 @@ def parse_title(text):
 
 
 # ---------------------------------------------------------------------------
+# Song order:  [Order] V1 C V2 C   (or the codes on the lines below the tag)
+# ---------------------------------------------------------------------------
+
+_ORDER_HEADER_RE = re.compile(r"^\s*[\[\u3010]\s*(.+?)\s*[\]\u3011]\s*(.*)$")
+
+
+def parse_order(text):
+    """Pull an [Order] section out of the text. Returns (tokens, cleaned_text).
+
+    The codes can follow the tag on the same line or fill the lines below it
+    (up to the next [tag] or blank line). Codes are separated by spaces; use
+    commas instead to give full names with spaces ("Verse 1, Chorus").
+    tokens is None when there is no [Order] section."""
+    tokens, kept, in_order = None, [], False
+    for raw in text.splitlines():
+        m = _ORDER_HEADER_RE.match(raw)
+        if m and m.group(1).strip().lower() in _tags.ORDER_TAGS:
+            tokens = [] if tokens is None else tokens
+            in_order = True
+            if m.group(2).strip():
+                tokens += _order_tokens(m.group(2))
+            continue
+        if in_order:
+            if m or not raw.strip():
+                in_order = False             # next tag or blank line ends it
+            else:
+                tokens += _order_tokens(raw)
+                continue
+        kept.append(raw)
+    return tokens, "\n".join(kept)
+
+
+def _order_tokens(s):
+    parts = re.split(r"[,，、;；]", s) if re.search(r"[,，、;；]", s) else s.split()
+    return [p.strip() for p in parts if p.strip()]
+
+
+def section_code(name):
+    """Short code for a section name: Verse 1 -> V1, Chorus -> C,
+    Pre-Chorus -> PC, Chorus 2 -> C2."""
+    words = [w for w in re.split(r"[\s\-_]+", name.strip()) if w]
+    num = ""
+    if words and words[-1].isdigit():
+        num = words.pop()
+    return "".join(w[0] for w in words).upper() + num
+
+
+def resolve_order(tokens, sections):
+    """Map order tokens to section indexes. Accepts codes (V1, C, PC, B) and
+    full names (Verse 1, chorus). Returns (indexes, notes)."""
+    def norm(s):
+        return re.sub(r"[\s\-_]+", "", s).lower()
+    codes = [section_code(s["name"]) for s in sections]
+    names = [norm(s["name"]) for s in sections]
+    out, notes = [], []
+    for tok in tokens:
+        t = norm(tok)
+        idx = None
+        for cands in ([i for i, c in enumerate(codes) if c.lower() == t],
+                      [i for i, n in enumerate(names) if n == t],
+                      # "V" / "Verse" also find "Verse 1", and "C1" also finds "Chorus"
+                      [i for i, c in enumerate(codes) if c.lower() == t + "1"],
+                      [i for i, n in enumerate(names) if n == t + "1"],
+                      [i for i, c in enumerate(codes) if t.endswith("1") and c.lower() == t[:-1]],
+                      [i for i, n in enumerate(names) if t.endswith("1") and n == t[:-1]]):
+            if cands:
+                idx = cands[0]
+                break
+        if idx is None:
+            notes.append("order: no section matches \"%s\" (skipped). Sections: %s"
+                         % (tok, ", ".join("%s = %s" % (c, s["name"])
+                                           for c, s in zip(codes, sections))))
+        else:
+            out.append(idx)
+    return out, notes
+
+
+def play_slides(song):
+    """The slides in the order they are shown: following [Order] if there is
+    one (repeats included), else section by section. Yields dicts with the
+    section, its index and the slide."""
+    order = song.get("order")
+    seq = order if order else range(len(song["sections"]))
+    for si in seq:
+        sec = song["sections"][si]
+        for sl in sec["slides"]:
+            yield {"section_index": si, "section": sec, "slide": sl}
+
+
+# ---------------------------------------------------------------------------
 # Whole-song layout
 # ---------------------------------------------------------------------------
 
@@ -539,12 +634,15 @@ def layout_song(text, cfg, *, group_name="Lyrics", footer_title=None):
     {"title": str|None, "notes": [str],          # notes = tag fixes / skipped tags
      "cfg": resolved config,                      # fonts filled in for every tier
      "slide_size": (w, h), "text_color": [r,g,b], "stroke": {...},
+     "order": [section index, ...] | None,       # from [Order]; repeats allowed
      "sections": [{"name", "color": (r,g,b) 0-1,
                    "slides": [{"rows": [{text, font, family, size, cjk}],
                                "box": (x,y,w,h) | None, "valign": top|middle|bottom,
                                "title": {text, font, family, size, box, align} | None}]}]}
     """
     notes = []
+    # take out the [Order] section first, so it is never read as lyrics
+    order_tokens, text = parse_order(text)
     # fix typo'd standard tags FIRST (so [Chrous] -> [Chorus] is kept, not skipped)
     text, tag_warnings = _tags.correct_tags(text)
     notes.extend(tag_warnings)
@@ -587,6 +685,12 @@ def layout_song(text, cfg, *, group_name="Lyrics", footer_title=None):
                                             else group_color(sec["name"])),
                              "slides": slides})
 
+    order = None
+    if order_tokens is not None:
+        order, order_notes = resolve_order(order_tokens, out_sections)
+        notes.extend(order_notes)
+        order = order or None              # nothing matched -> written order
+
     return {"title": title, "notes": notes, "cfg": cfg,
             "slide_size": (slide_w, slide_h), "text_color": cfg["text_color"],
-            "stroke": cfg["stroke"], "sections": out_sections}
+            "stroke": cfg["stroke"], "sections": out_sections, "order": order}

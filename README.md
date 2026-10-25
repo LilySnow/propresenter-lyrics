@@ -97,6 +97,13 @@ https://youtu.be/xxxx
 - `[Verse 1]`, `[Chorus 2]`, … — coloured groups. Numbers are preserved, and
   typos such as `[Chrous]` are corrected automatically. Give a section its own
   colour with `[Bridge | #8800cc]`.
+- **`[Order] V1 C V2 C B C`** — play sections in this order, repeats included
+  (the codes can also go on the lines below the tag; `[顺序]` works too).
+  Codes are the initials plus the number: V1 = Verse 1, C = Chorus, C2 = Chorus 2,
+  PC = Pre-Chorus, B = Bridge. Full names work too, separated by commas
+  (`Verse 1, Chorus`). In the `.pro` this becomes a ProPresenter
+  **arrangement** named "Order"; the preview shows the slides in this order.
+  Without `[Order]`, sections play in the order they are written.
 - **Translation separator:** ` | ` (also accepts full-width `｜` and similar bars).
 - **`//` inside a line** = line break; **`//` on its own line** = page break.
   Default is one lyric line per page.

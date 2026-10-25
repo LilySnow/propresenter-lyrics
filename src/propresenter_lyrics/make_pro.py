@@ -66,7 +66,7 @@ from slide_layout import (  # noqa: F401  (re-exported)
     parse_color, TITLE_SECTION_NAMES, parse_sections, CJK_FONT_NAME,
     CJK_FONT_FAMILY, pick_font, pinyin_line, DEFAULT_SEPS, split_pair, _row,
     _spacer_row, build_page_rows, has_cjk, normalize_latin_punct, parse_title,
-    lyric_box, layout_song)
+    lyric_box, layout_song, parse_order, section_code, resolve_order, play_slides)
 
 
 # ---------------------------------------------------------------------------
@@ -298,6 +298,7 @@ def write_presentation(song, name=None):
     ai.platform = appinfo_pb2.ApplicationInfo.PLATFORM_MACOS
     ai.application_version.major_version = 7
 
+    group_ids = []
     for sec in song["sections"]:
         sec_cue_ids = []
         for sl in sec["slides"]:
@@ -333,6 +334,17 @@ def write_presentation(song, name=None):
         set_color(cg.group.color, *sec["color"])
         for sid in sec_cue_ids:
             cg.cue_identifiers.add().string = sid
+        group_ids.append(cg.group.uuid.string)
+
+    # [Order] -> a ProPresenter arrangement (sections in play order, repeats
+    # allowed), selected so ProPresenter follows it.
+    if song.get("order"):
+        arr = p.arrangements.add()
+        new_uuid(arr.uuid)
+        arr.name = "Order"
+        for si in song["order"]:
+            arr.group_identifiers.add().string = group_ids[si]
+        p.selected_arrangement.string = arr.uuid.string
 
     return p
 
@@ -393,7 +405,12 @@ def main():
                          "Run: pip install pypinyin\n")
     with open(out_path, "wb") as fh:
         fh.write(p.SerializeToString())
-    print("Wrote %s : %d slides" % (out_path, len(p.cues)))
+    order = ""
+    if len(p.arrangements):
+        names = {cg.group.uuid.string: cg.group.name for cg in p.cue_groups}
+        order = ", order: " + " ".join(
+            section_code(names[g.string]) for g in p.arrangements[0].group_identifiers)
+    print("Wrote %s : %d slides%s" % (out_path, len(p.cues), order))
 
 
 if __name__ == "__main__":

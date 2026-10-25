@@ -127,6 +127,7 @@ STRICT OUTPUT RULES:
   [Chorus | #cc0033]. The song title text under [Title] is NOT translated (no
   ' | '), but DO apply the reverence-pronoun fix to it.
 - Keep blank lines exactly where they are.
+- An [Order] section lists section codes such as "V1 C V2 C": copy it exactly.
 - A "lyric section" is one whose tag is a normal song part (Verse, Chorus,
   Bridge, Pre-Chorus, Intro, Outro, Tag, etc.). Any other section (e.g.
   [youtube], [ccli], [key], [note]) is metadata: leave its content completely
@@ -167,6 +168,20 @@ def _is_header(line):
     return s.startswith("[") and s.endswith("]")
 
 
+_TAG_LINE_RE = re.compile(r"^\s*[\[\u3010]\s*(.+?)\s*[\]\u3011]")
+
+
+def _section_kind(tag):
+    """'title', 'lyric' (a song part) or 'meta' ([Order], [youtube], ...)."""
+    name = tag.split("|", 1)[0].strip().lower()
+    first = name.split()[0] if name.split() else name
+    if name in _tags.TITLE_TAGS:
+        return "title"
+    if first in _tags.GROUP_TAGS or name in _tags.GROUP_TAGS:
+        return "lyric"
+    return "meta"
+
+
 def _split_pair(line, seps="|｜∣│"):
     idxs = [line.find(s) for s in seps if line.find(s) != -1]
     if idxs:
@@ -188,9 +203,18 @@ def restore_provided_translations(original_text, llm_text, freeze=False):
     if len(o) != len(g):
         return llm_text, False          # line counts differ -> can't align safely
     out = []
+    kind = "lyric"                       # text before the first tag is lyrics
     for ol, gl in zip(o, g):
-        if not ol.strip() or _is_header(ol):
+        m = _TAG_LINE_RE.match(ol)
+        if m:                            # a tag line: keep it exactly as written
+            kind = _section_kind(m.group(1))
+            out.append(ol)
+            continue
+        if not ol.strip():
             out.append(gl)
+            continue
+        if kind == "meta":               # [Order], [youtube], ...: never changed
+            out.append(ol)
             continue
         oprimary, otrans = _split_pair(ol)
         if otrans is not None and freeze:
