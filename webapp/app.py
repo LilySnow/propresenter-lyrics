@@ -505,11 +505,13 @@ if ss.lyrics.strip():
                 name = pres.name if pres.name and pres.name != "Generated Song" else "song"
             fname = re.sub(r'[\\/:*?"<>|]+', "_", name).strip() or "song"
             groups = ", ".join(g.group.name for g in pres.cue_groups)
-            summary = f"**{pres.name}** — {len(pres.cues)} slides ({groups})"
+            summary = (f"**{pres.name}** — {len(pres.cues)} slide"
+                       f"{'s' if len(pres.cues) != 1 else ''} ({groups})")
             if song.get("order"):
                 codes = " ".join(slide_layout.section_code(song["sections"][i]["name"])
                                  for i in song["order"])
-                summary += f" · order: **{codes}** ({preview.slide_count(song)} slides shown)"
+                shown = preview.slide_count(song)
+                summary += f" · order: **{codes}** ({shown} slide{'s' if shown != 1 else ''} shown)"
             st.write(summary)
             d1, d2, d3 = st.columns(3)
             with d1:
@@ -546,14 +548,18 @@ if ss.lyrics.strip():
                    "(or use **File → Import**).")
         n_slides = preview.slide_count(song)
         if n_slides:
-            with st.expander(f"👁 Preview — {n_slides} slides", expanded=True):
+            with st.expander(f"👁 Preview — {n_slides} slide{'s' if n_slides != 1 else ''}",
+                             expanded=True):
                 st.caption("Approximate: fonts and line spacing can look slightly "
                            "different in ProPresenter. Slide breaks, text and sizes "
                            "match the file. A red frame means the text is taller "
                            "than its text box.")
                 page = preview.render_html(song, standalone=False)
                 if hasattr(st, "iframe"):            # Streamlit 1.5x+: sizes itself
-                    st.iframe(page, height="content")
+                    # The frame grows with its content but never shrinks, so give
+                    # it a fresh container (new key) whenever the slide count changes.
+                    with st.container(key=f"preview-{n_slides}"):
+                        st.iframe(page, height="content")
                 else:                                # older Streamlit
                     components.html(page, height=min(40 + (n_slides + 1) // 2 * 215, 2400),
                                     scrolling=True)
