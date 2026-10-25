@@ -425,7 +425,10 @@ elif ss.upload_id != up_id:
     reset_prep()
 
 st.text_area("Lyrics", key="lyrics", height=340, on_change=lyrics_changed,
-             placeholder="[Title]\nSong name\n\n[Verse 1]\nFirst line | translation\n…")
+             placeholder="[Title]\nSong name\n\n[Order]\nV1 C V2 C\n\n"
+                         "[Verse 1]\nFirst line | translation\n\n"
+                         "[Chorus]\nChorus line | translation\n\n"
+                         "[Verse 2]\nNext line | translation")
 
 # --- step 1: Claude ---
 st.header("1 · Fix pronouns & translate (optional)")
