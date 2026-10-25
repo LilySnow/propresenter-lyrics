@@ -9,8 +9,10 @@ Users don't need to install anything. They can:
 - choose fonts, sizes, margins and the lyrics position in the sidebar, or upload
   their own `config.yaml`;
 - check the slides in a preview, which marks slides whose text doesn't fit;
-- download the `.pro` file and the final lyrics as `.txt` (with the uploaded
-  file's name, or else the song title).
+- download the `.pro` file, the final lyrics as `.txt`, and a presenter `.html`
+  to show the song without ProPresenter (projector window, black screen,
+  background picture/video, live text editing; works offline). The files get
+  the uploaded file's name, or else the song title.
 
 Building slides is free and unlimited. Only the Claude step uses your API key, and
 it is protected by a password and a daily limit.

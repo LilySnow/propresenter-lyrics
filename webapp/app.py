@@ -28,7 +28,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import yaml
 
-from propresenter_lyrics import make_pro, prep_lyrics, preview, slide_layout
+from propresenter_lyrics import make_pro, prep_lyrics, preview, presenter, slide_layout
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 DAILY_LIMIT = int(os.environ.get("DAILY_LIMIT", "50"))
@@ -42,12 +42,18 @@ WEB_DEFAULTS = {"margins": {"top": 0}}
 EXAMPLE = """[Title]
 使我们合一
 
+[Order]
+V1 C V2 C
+
 [Verse 1]
 求主留我於十架//在彼有生命水 | Heer, houd mij dicht bij het kruis//Daar stroomt het water
 在你的爱里面 | In uw liefde
 
 [Chorus]
 我们在你爱中合一
+
+[Verse 2]
+Wij prijzen U | 我们赞美祢
 
 [youtube]
 https://youtu.be/xxxx
@@ -502,7 +508,7 @@ if ss.lyrics.strip():
                                  for i in song["order"])
                 summary += f" · order: **{codes}** ({preview.slide_count(song)} slides shown)"
             st.write(summary)
-            d1, d2 = st.columns(2)
+            d1, d2, d3 = st.columns(3)
             with d1:
                 st.download_button("⬇ Download .pro file", data=pres.SerializeToString(),
                                    file_name=f"{fname}.pro", mime="application/octet-stream",
@@ -516,7 +522,17 @@ if ss.lyrics.strip():
                                    help="The text in the Lyrics box, including Claude's "
                                         "changes and your edits. Keep it to make "
                                         "changes later.")
-            st.caption(f"File names: {fname}.pro and {fname}.txt")
+            with d3:
+                show_song = dict(song, title=song["title"] or fname)
+                st.download_button("⬇ Presenter .html",
+                                   data=presenter.render_presenter_html([show_song]).encode("utf-8"),
+                                   file_name=f"{fname} - presenter.html", mime="text/html",
+                                   use_container_width=True,
+                                   help="Show the song without ProPresenter: open this file in "
+                                        "a browser, click 'Open projector', drag that window to "
+                                        "the projector and double-click it for fullscreen. "
+                                        "Works offline.")
+            st.caption(f"File names: {fname}.pro, {fname}.txt and {fname} - presenter.html")
             if not make_pro._HAS_PYPINYIN:
                 st.warning("pypinyin is not installed on the server, so no pinyin was added.")
         important, minor = sort_notes(notes)

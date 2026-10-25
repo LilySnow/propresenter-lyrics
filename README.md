@@ -5,11 +5,13 @@ automatic pinyin, bilingual layout, reverence-pronoun handling, and
 Simplified→Traditional conversion. Built for Chinese / Dutch / English worship
 teams, but useful for any multilingual lyrics.
 
-Three commands:
+Four commands:
 
 - **`pp-make`** — turns a lyrics text file into a `.pro` (deterministic, offline).
 - **`pp-preview`** — the same slides as an HTML page you can open in any
   browser, to check them without ProPresenter (offline, self-contained).
+- **`pp-present`** — one HTML file to *show* the songs without ProPresenter:
+  a control window with all slides and a projector window (see below).
 - **`pp-prep`** — optional pre-pass that uses Claude to fix reverence
   pronouns and add translations, plus deterministic tag-typo fixing and
   Simplified→Traditional conversion.
@@ -52,6 +54,9 @@ pp-prep song.txt | pp-make -o ~/Downloads/song.pro
 
 # check the slides in a browser first (writes song.html next to song.txt):
 pp-preview song.txt
+
+# a whole service in one file, to present without ProPresenter:
+pp-present song1.txt song2.txt song3.txt -o sunday.html
 ```
 
 - Input: a file, or `-` for stdin (`pp-make` also reads stdin when you omit the
@@ -64,20 +69,44 @@ pp-preview song.txt
   `--no-translate`, `--no-pronouns`, `--no-traditional`, `--dry-run`
   (see `pp-prep --help`).
 
+### Presenting without ProPresenter (`pp-present`)
+
+Open the HTML file in a browser (Chrome, Edge, Safari or Firefox); it works
+offline. That window is your **control window**:
+
+- **▶ Open projector** opens a second window. Drag it to the projector screen and
+  double-click it (or press **F** in it) for fullscreen. If nothing opens, allow
+  pop-ups for the file.
+- Click a slide to show it, or use **→ / ↓ / PageDown / space** and **← / ↑ /
+  PageUp** (a presentation clicker works, also when the projector window has
+  focus). Green frame = on screen, dashed = next. Slides follow `[Order]`.
+- **B** = black screen, **C** = clear text (the background stays).
+- **Background**: choose a picture or video on the day, and darken it so the text
+  stays readable. It isn't stored in the file.
+- **✎ on a slide** edits its text live; pinyin is redone for edited Chinese
+  lines, and every repeat of that slide changes too. **Save a copy** downloads
+  the file with your edits (they don't go back into your lyrics `.txt`).
+
 ### How it fits together
 
 `slide_layout.py` decides what goes on each slide (sections, pages, pinyin,
 fonts, sizes, positions) and knows nothing about ProPresenter. `make_pro.py`
 writes that layout as a `.pro` file; `preview.py` draws the same layout as HTML.
 Because both start from `slide_layout.layout_song()`, the preview always shows
-the same slide breaks and text as the `.pro`:
+the same slide breaks and text as the `.pro`. `presenter.py` uses the same
+layout, and the preview and presenter draw slides with the same
+`web/slides.js`:
 
 ```python
-from propresenter_lyrics import slide_layout, make_pro, preview
+from propresenter_lyrics import slide_layout, make_pro, preview, presenter
 song = slide_layout.layout_song(text, slide_layout.load_config())
 pro_bytes = make_pro.write_presentation(song).SerializeToString()
 html = preview.render_html(song)
+show = presenter.render_presenter_html([song])   # several songs: a whole service
 ```
+
+The presenter bundles [pinyin-pro](https://github.com/zh-lx/pinyin-pro) (MIT
+licence, `web/pinyin-pro.LICENSE.txt`) for pinyin of lines edited live.
 
 ## Lyrics file format
 

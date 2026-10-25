@@ -407,19 +407,21 @@ def split_pair(raw, seps=DEFAULT_SEPS):
     return raw.strip(), None
 
 
-def _row(text, tier, cjk=None):
+def _row(text, tier, cjk=None, role="primary"):
+    """One text row. role: pinyin | primary | translation | spacer (lets an
+    editor know which pinyin row belongs to which Chinese row)."""
     is_cjk = has_cjk(text) if cjk is None else cjk
     if not is_cjk:                       # Latin row -> ，。！？（） etc. become ASCII
         text = normalize_latin_punct(text)
     return {"text": text, "font": tier["font"], "family": tier["family"],
-            "size": tier["size"], "cjk": is_cjk}
+            "size": tier["size"], "cjk": is_cjk, "role": role}
 
 
 def _spacer_row(gap, cfg):
     """A blank row (non-breaking space) that pushes the translation down by ~gap pt."""
     f = cfg["latin"]["primary"]
     return {"text": "\u00a0", "font": f["font"], "family": f["family"],
-            "size": gap, "cjk": False}
+            "size": gap, "cjk": False, "role": "spacer"}
 
 
 def build_page_rows(page_lines, cfg):
@@ -445,13 +447,13 @@ def build_page_rows(page_lines, cfg):
             for sub in split_linebreaks(primary, lb):
                 py = pinyin_line(sub)
                 if py:
-                    rows.append(_row(py, t["pinyin"], cjk=False))
+                    rows.append(_row(py, t["pinyin"], cjk=False, role="pinyin"))
                 rows.append(_row(sub, t["primary"], cjk=True))
             if trans:
                 if gap:
                     rows.append(_spacer_row(gap, cfg))
                 for sub in split_linebreaks(trans, lb):
-                    rows.append(_row(sub, t["translation"]))
+                    rows.append(_row(sub, t["translation"], role="translation"))
         else:                                         # Dutch / English scenario
             t = cfg["latin"]
             for sub in split_linebreaks(primary, lb):
@@ -460,7 +462,7 @@ def build_page_rows(page_lines, cfg):
                 if gap:
                     rows.append(_spacer_row(gap, cfg))
                 for sub in split_linebreaks(trans, lb):
-                    rows.append(_row(sub, t["translation"]))
+                    rows.append(_row(sub, t["translation"], role="translation"))
     return rows
 
 
@@ -602,13 +604,13 @@ def resolve_order(tokens, sections):
 def play_slides(song):
     """The slides in the order they are shown: following [Order] if there is
     one (repeats included), else section by section. Yields dicts with the
-    section, its index and the slide."""
+    section, its index, the slide and its index within the section."""
     order = song.get("order")
     seq = order if order else range(len(song["sections"]))
     for si in seq:
         sec = song["sections"][si]
-        for sl in sec["slides"]:
-            yield {"section_index": si, "section": sec, "slide": sl}
+        for k, sl in enumerate(sec["slides"]):
+            yield {"section_index": si, "slide_index": k, "section": sec, "slide": sl}
 
 
 # ---------------------------------------------------------------------------
