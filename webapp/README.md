@@ -1,9 +1,16 @@
 # ProPresenter Lyrics — web interface
 
 A browser front end for [propresenter-lyrics](https://github.com/LilySnow/propresenter-lyrics).
-Users paste lyrics, optionally let Claude fix reverence pronouns and add
-translations, review the result, and download a `.pro` file. They don't need to
-install anything.
+Users don't need to install anything. They can:
+
+- paste lyrics or upload a `.txt` file;
+- optionally let Claude fix reverence pronouns and add translations, then
+  review what changed (with Undo);
+- choose fonts, sizes, margins and the lyrics position in the sidebar, or upload
+  their own `config.yaml`;
+- check the slides in a preview, which marks slides whose text doesn't fit;
+- download the `.pro` file and the final lyrics as `.txt` (with the uploaded
+  file's name, or else the song title).
 
 Building slides is free and unlimited. Only the Claude step uses your API key, and
 it is protected by a password and a daily limit.
@@ -17,8 +24,16 @@ it is protected by a password and a daily limit.
 | `Dockerfile` | Hugging Face Spaces, Google Cloud Run |
 
 `requirements.txt` and `Dockerfile` install this package from GitHub. The part
-after `@` picks the branch or tag (for example `@main`, or `@web-interface` while
-testing a branch).
+after `@` picks the branch or tag (for example `@main`, or another branch name
+while testing a branch).
+
+## Website defaults
+
+The sidebar starts from the package's built-in settings, with one change: the
+**top margin is 0**, so the text box starts at the top of the slide, matching
+the maintainer's `config.yaml`. `pp-make` without a config uses 54. To change the
+website's starting values, edit `WEB_DEFAULTS` near the top of `app.py`, for
+example `{"margins": {"top": 0}, "vertical_align": "top"}`.
 
 ## Settings (secrets)
 

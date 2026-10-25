@@ -54,8 +54,15 @@ pp-prep song.txt | pp-make -o ~/Downloads/song.pro
 pp-preview song.txt
 ```
 
-`pp-make` and `pp-prep` read a file, or stdin when you omit the filename
-(`pp-preview` uses `-` for stdin). All take `--config`.
+- Input: a file, or `-` for stdin (`pp-make` also reads stdin when you omit the
+  filename, as in the pipe above).
+- `pp-make` and `pp-preview` take `--config` (see [Configuration](#configuration))
+  and `--title` to override the song title.
+- `pp-prep` translates Chinese lines into Dutch, and every other line into
+  Chinese. Use `--other English` (or any language) to change what Chinese lines
+  are translated into. Translations you already wrote are kept. Other options:
+  `--no-translate`, `--no-pronouns`, `--no-traditional`, `--dry-run`
+  (see `pp-prep --help`).
 
 ### How it fits together
 
@@ -87,8 +94,9 @@ https://youtu.be/xxxx
 ```
 
 - `[Title]` — song name, shown small in a corner and used as the document name.
-- `[Verse 1]`, `[Chorus 2]`, … — coloured groups. Numbers are preserved; typos
-  are auto-corrected by `pp-prep`.
+- `[Verse 1]`, `[Chorus 2]`, … — coloured groups. Numbers are preserved, and
+  typos such as `[Chrous]` are corrected automatically. Give a section its own
+  colour with `[Bridge | #8800cc]`.
 - **Translation separator:** ` | ` (also accepts full-width `｜` and similar bars).
 - **`//` inside a line** = line break; **`//` on its own line** = page break.
   Default is one lyric line per page.
@@ -103,9 +111,10 @@ https://youtu.be/xxxx
 
 ## Configuration
 
-All fonts, sizes, stroke, title position, and markers live in a **YAML** config
-(commented, easy to edit). Fonts are set once for Chinese and once for Latin
-text (pinyin, Dutch/English, title):
+All fonts, sizes, outline, margins, lyrics position (top / middle / bottom),
+title position and markers live in a **YAML** config (commented, easy to edit).
+Fonts are set once for Chinese and once for Latin text (pinyin, Dutch/English,
+title):
 
 ```yaml
 fonts:
@@ -121,7 +130,7 @@ pp-make --init-config                 # ~/.config/propresenter-lyrics/config.yam
 pp-make --init-config ./config.yaml   # or in your working folder
 ```
 
-`pp-make` searches for a config in this order (first found wins; otherwise
+`pp-make` and `pp-preview` search for a config in this order (first found wins; otherwise
 built-in defaults apply):
 
 1. `--config PATH`
