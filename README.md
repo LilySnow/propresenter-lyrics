@@ -192,8 +192,12 @@ Proto definitions are reverse-engineered by the community project
 
 - Reverence pronouns (你→祢, 他→祂 for God) and translations are
   theology-sensitive — review `pp-prep` output before generating slides.
-- Multi-size rows and text stroke render from proto attributes; verify on a copy
-  of your library first.
+- The text outline (stroke) is ProPresenter's stroke width in points: `2` is
+  its usual outline (`stroke: width:` in the config, or the website sidebar).
+  ProPresenter's output draws it from the RTF (`\outl0\strokewidth-40 \strokec2`),
+  not from the `stroke_width` attribute, and a large width (e.g. 6) looks much
+  thicker on the projector than in previews — check thickness on the real screen.
+- Verify new settings on a copy of your library first.
 
 ## License
 

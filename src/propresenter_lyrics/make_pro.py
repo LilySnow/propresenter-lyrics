@@ -95,12 +95,23 @@ def rtf_escape(s):
 
 
 def _stroke_tokens(stroke):
-    """RTF stroke run tokens for a given stroke config, or '' if disabled.
-    Uses colour index 2 (added to the colortbl by the RTF builders)."""
+    """RTF outline (stroke) tokens for a stroke config, or '' if disabled.
+
+    Written the way ProPresenter itself writes them, right after the text
+    colour:  \\cf1 \\outl0\\strokewidth-40 \\strokec2 text
+    The width is ProPresenter's stroke width in points, x20 (2 -> -40, its
+    usual outline). Negative means outline AND fill. ProPresenter's output
+    draws the outline from this RTF only (tested: the attribute copy is not
+    used for drawing). Uses colour index 2 (added to the colortbl)."""
     w = stroke.get("width", 0)
-    if not w:
+    try:
+        w = abs(float(w))
+    except (TypeError, ValueError):
+        w = 0
+    units = int(round(20 * w))
+    if not units:
         return ""
-    return "\\strokec2\\strokewidth%d" % int(round(-20 * abs(w)))  # neg = fill+outline
+    return "\\outl0\\strokewidth%d \\strokec2 " % -units
 
 
 def make_multitier_rtf(rows, color_rgb, stroke, align="center"):
@@ -132,7 +143,7 @@ def make_multitier_rtf(rows, color_rgb, stroke, align="center"):
     for i, r in enumerate(rows):
         half = int(round(r["size"] * 2))
         nl = "\\\n" if i < len(rows) - 1 else ""
-        body.append("\\f%d\\fs%d%s \\cf1 %s%s"
+        body.append("\\f%d\\fs%d \\cf1 %s%s%s"
                      % (fidx[r["font"]], half, stok, rtf_escape(r["text"]), nl))
     parts.append("".join(body) + "}")
     return "\n".join(parts).encode("utf-8")
@@ -154,7 +165,9 @@ def _apply_text_attrs(txt, *, font_name, font_family, size, color_rgb, stroke,
     txt.attributes.paragraph_style.line_height_multiple = 1.0
     if stroke.get("width", 0):
         sc = stroke.get("color", [0, 0, 0])
-        txt.attributes.stroke_width = -abs(float(stroke["width"]))  # neg = fill+outline
+        # same width as the RTF, positive as ProPresenter writes it (its editor
+        # shows this value; the output draws from the RTF)
+        txt.attributes.stroke_width = abs(float(stroke["width"]))
         txt.attributes.stroke_color.red = sc[0] / 255.0 if sc[0] > 1 else sc[0]
         txt.attributes.stroke_color.green = sc[1] / 255.0 if sc[1] > 1 else sc[1]
         txt.attributes.stroke_color.blue = sc[2] / 255.0 if sc[2] > 1 else sc[2]
@@ -214,7 +227,7 @@ def make_rtf(lines, font_pt, font_name="HelveticaNeue", color_rgb=(255, 255, 255
         "{\\colortbl;\\red%d\\green%d\\blue%d;\\red%d\\green%d\\blue%d;}\n"
         "{\\*\\expandedcolortbl;;;}\n"
         "\\pard\\pardirnatural%s\\partightenfactor0\n"
-        "\\f0\\fs%d%s \\cf1 %s}"
+        "\\f0\\fs%d \\cf1 %s%s}"
         % (font_name, r, g, b, sc[0], sc[1], sc[2], qcode, half, stok, body)
     ).encode("utf-8")
 

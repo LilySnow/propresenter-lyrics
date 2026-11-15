@@ -10,8 +10,9 @@ slide:
 
 text_color: [255, 255, 255]        # main text colour (white)
 
-stroke:                            # outline drawn around ALL text
-  width: 6                         # 0 turns the outline off
+stroke:                            # outline (stroke) drawn around ALL text
+  width: 2                         # ProPresenter's stroke width in points: 2 is its
+                                   # usual outline, higher = thicker, 0 = off
   color: [0, 0, 0]                 # black
 
 translation_gap: 70                # blank space (pt) between a lyric and its translation
