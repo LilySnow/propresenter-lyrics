@@ -359,9 +359,9 @@ with st.sidebar:
                                  help="Left and right margin")
     stroke = st.number_input(
         "Text outline (stroke) width", 0.0, 20.0, float(base["stroke"]["width"]), step=0.5,
-        key=k("sw"), help="ProPresenter's stroke width in points. 2 is ProPresenter's usual "
-                          "outline; higher is thicker, 0 turns it off. The outline in the "
-                          "preview is approximate: check thickness on the real screen.")
+        key=k("sw"), help="ProPresenter's stroke width: the same number as in ProPresenter's "
+                          "text inspector. Higher is thicker, 0 turns it off. The outline in "
+                          "the preview is approximate: check thickness on the real screen.")
     gap = st.number_input("Gap between lyric and translation", 0, 400, int(base["translation_gap"]), key=k("gap"))
 
 cfg = copy.deepcopy(base)
