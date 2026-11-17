@@ -192,11 +192,13 @@ Proto definitions are reverse-engineered by the community project
 
 - Reverence pronouns (你→祢, 他→祂 for God) and translations are
   theology-sensitive — review `pp-prep` output before generating slides.
-- The text outline (stroke) is ProPresenter's stroke width in points: `2` is
-  its usual outline (`stroke: width:` in the config, or the website sidebar).
-  ProPresenter's output draws it from the RTF (`\outl0\strokewidth-40 \strokec2`),
-  not from the `stroke_width` attribute, and a large width (e.g. 6) looks much
-  thicker on the projector than in previews — check thickness on the real screen.
+- Files are written the way **ProPresenter 22** writes them (checked against
+  files saved by ProPresenter 22.0.0 on macOS): the version number, per-line
+  font information, RTF layout and text-box defaults. Older files, which said
+  "ProPresenter 7", showed a far too thick text outline on ProPresenter 22's
+  output.
+- The text outline (stroke) is ProPresenter's stroke width, the same number as in
+  its text inspector (`stroke: width:` in the config, default 6).
 - Verify new settings on a copy of your library first.
 
 ## License

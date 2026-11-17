@@ -167,9 +167,8 @@ def resolve_fonts(cfg):
 DEFAULT_CONFIG = {
     "slide":      {"width": 1920, "height": 1080},
     "text_color": [255, 255, 255],                 # white
-    # outline (stroke) on ALL text, width = ProPresenter's stroke width in
-    # points (2 = ProPresenter's usual outline; 0 = off)
-    "stroke":     {"width": 2, "color": [0, 0, 0]},
+    # outline (stroke) on ALL text: ProPresenter's stroke width (0 = off)
+    "stroke":     {"width": 6, "color": [0, 0, 0]},
     "translation_gap": 70,     # blank space (pt) between a lyric and its translation
     # keep text this far (px) from each slide edge; per-side
     "margins": {"left": 96, "right": 96, "top": 54, "bottom": 54},
