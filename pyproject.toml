@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "propresenter-lyrics"
-version = "0.1.13"
+version = "0.2.0"
 description = "Generate ProPresenter 7 (.pro) presentations from lyrics text, with pinyin, translation, and reverence-pronoun tooling."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -34,4 +34,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "propresenter_lyrics" = ["config.template.yaml", "web/*"]
-"propresenter_lyrics.proto" = ["*.py"]
+"propresenter_lyrics.proto" = ["*.py", "document/*.py", "workspace/*.py", "workspace/entities/*.py"]

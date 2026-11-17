@@ -94,59 +94,124 @@ def rtf_escape(s):
     return "".join(out)
 
 
-def _stroke_tokens(stroke):
-    """RTF outline (stroke) tokens for a stroke config, or '' if disabled.
+# The ProPresenter version our files say they were made with. ProPresenter
+# treats files differently by version, so we write exactly what ProPresenter 22
+# itself writes (checked against files saved by ProPresenter 22.0.0 on macOS).
+PROPRESENTER_VERSION = (22, 0, 0, "369098928")   # major, minor, patch, build
 
-    Written the way ProPresenter itself writes them, right after the text
-    colour:  \\cf1 \\outl0\\strokewidth-40 \\strokec2 text
-    The width is ProPresenter's stroke width in points, x20 (2 -> -40, its
-    usual outline). Negative means outline AND fill. ProPresenter's output
-    draws the outline from this RTF only (tested: the attribute copy is not
-    used for drawing). Uses colour index 2 (added to the colortbl)."""
-    w = stroke.get("width", 0)
+
+def _stroke_units(stroke):
+    """Stroke width in RTF units (ProPresenter writes width 6 as -120)."""
     try:
-        w = abs(float(w))
+        w = abs(float(stroke.get("width", 0)))
     except (TypeError, ValueError):
         w = 0
-    units = int(round(20 * w))
+    return int(round(20 * w))
+
+
+def _stroke_tokens(stroke):
+    r"""RTF outline (stroke) tokens, or '' if disabled. Written as ProPresenter
+    22 writes them, after the text colour:  \cf2 \CocoaLigature0
+    \outl0\strokewidth-120 \strokec3 text  (stroke 6 -> -120; negative =
+    outline AND fill; colour 3 = the stroke colour in the colour table)."""
+    units = _stroke_units(stroke)
     if not units:
         return ""
-    return "\\outl0\\strokewidth%d \\strokec2 " % -units
+    return "\\outl0\\strokewidth%d \\strokec3 " % -units
+
+
+def _css_c(v):
+    r"""RTF \cssrgb component: 0-255 -> 0-100000."""
+    return int(round(float(v) / 255.0 * 100000))
+
+
+def _pp_rtf(runs, color_rgb, stroke, align="center"):
+    """RTF for one text box, in ProPresenter 22's own layout.
+
+    runs: list of (font_name, is_cjk, size_pt, text), one per line."""
+    tr, tg, tb = color_rgb
+    sc = stroke.get("color", [0, 0, 0])
+    qcode = {"center": "\\qc", "left": "\\ql", "right": "\\qr"}.get(align, "\\qc")
+    fonts = []
+    for fn, _, _, _ in runs:
+        if fn not in fonts:
+            fonts.append(fn)
+    ftbl = "".join(
+        "\\f%d\\fnil\\fcharset%d %s;" % (
+            i, 134 if any(cjk and f == fn for f, cjk, _, _ in runs) else 0, fn)
+        for i, fn in enumerate(fonts))
+    fidx = {fn: i for i, fn in enumerate(fonts)}
+    stok = _stroke_tokens(stroke)
+    head = (
+        "{\\rtf1\\ansi\\ansicpg1252\\cocoartf2822\n"
+        "\\cocoatextscaling0\\cocoaplatform0{\\fonttbl%s}\n"
+        # entry 1 is ProPresenter's unused white; 2 = text colour; 3 = stroke colour
+        "{\\colortbl;\\red255\\green255\\blue255;\\red%d\\green%d\\blue%d;\\red%d\\green%d\\blue%d;}\n"
+        "{\\*\\expandedcolortbl;;\\cssrgb\\c%d\\c%d\\c%d;\\cssrgb\\c%d\\c%d\\c%d;}\n"
+        "\\deftab1680\n"
+        "\\pard\\pardeftab1680\\pardirnatural%s\\partightenfactor0\n\n"
+    ) % (ftbl, tr, tg, tb, sc[0], sc[1], sc[2],
+         _css_c(tr), _css_c(tg), _css_c(tb), _css_c(sc[0]), _css_c(sc[1]), _css_c(sc[2]), qcode)
+    body = []
+    for i, (fn, _, size, text) in enumerate(runs):
+        nl = "\\\n" if i < len(runs) - 1 else ""
+        body.append("\\f%d\\fs%d \\cf2 \\CocoaLigature0 %s%s%s"
+                    % (fidx[fn], int(round(float(size) * 2)), stok, rtf_escape(text), nl))
+    return (head + "".join(body) + "}").encode("utf-8")
 
 
 def make_multitier_rtf(rows, color_rgb, stroke, align="center"):
     """RTF for a stack of rows, each with its own font + size, plus a text stroke."""
-    tr, tg, tb = color_rgb
-    sc = stroke.get("color", [0, 0, 0])
-    qcode = {"center": "\\qc", "left": "\\ql", "right": "\\qr"}.get(align, "\\qc")
+    return _pp_rtf([(r["font"], r["cjk"], r["size"], r["text"]) for r in rows],
+                   color_rgb, stroke, align)
 
-    fonts = []
-    for r in rows:
-        if r["font"] not in fonts:
-            fonts.append(r["font"])
-    ftbl = "".join(
-        "\\f%d\\fnil\\fcharset%d %s;" % (
-            i, 134 if any(x["cjk"] and x["font"] == fn for x in rows) else 0, fn)
-        for i, fn in enumerate(fonts))
-    fidx = {fn: i for i, fn in enumerate(fonts)}
-    stok = _stroke_tokens(stroke)
 
-    parts = [
-        "{\\rtf1\\ansi\\ansicpg1252\\cocoartf2639",
-        "{\\fonttbl%s}" % ftbl,
-        "{\\colortbl;\\red%d\\green%d\\blue%d;\\red%d\\green%d\\blue%d;}"
-        % (tr, tg, tb, sc[0], sc[1], sc[2]),
-        "{\\*\\expandedcolortbl;;;}",
-        "\\pard\\pardirnatural%s\\partightenfactor0" % qcode,
-    ]
-    body = []
-    for i, r in enumerate(rows):
-        half = int(round(r["size"] * 2))
-        nl = "\\\n" if i < len(rows) - 1 else ""
-        body.append("\\f%d\\fs%d \\cf1 %s%s%s"
-                     % (fidx[r["font"]], half, stok, rtf_escape(r["text"]), nl))
-    parts.append("".join(body) + "}")
-    return "\n".join(parts).encode("utf-8")
+def _utf16_len(text):
+    return len(text.encode("utf-16-le")) // 2
+
+
+def _add_original_fonts(txt, runs):
+    """Per-line font info ProPresenter 22 writes next to the RTF
+    (custom_attributes.original_font; ranges in UTF-16 units, lines joined
+    by a newline that belongs to no range)."""
+    pos = 0
+    for fn, family, size, text in runs:
+        n = _utf16_len(text)
+        ca = txt.attributes.custom_attributes.add()
+        if pos:
+            ca.range.start = pos
+        ca.range.end = pos + n
+        ca.original_font.name = fn
+        ca.original_font.size = float(size)
+        ca.original_font.family = family
+        pos += n + 1
+
+
+def _pp_text_defaults(gel, sl_el):
+    """Settings ProPresenter 22 writes on every text box, with their default
+    values (box fill / stroke / shadow / feather are present but switched off)."""
+    set_color(gel.fill.color, 0.13, 0.59, 0.95)
+    gel.stroke.width = 3.0
+    set_color(gel.stroke.color, 1.0, 1.0, 1.0)
+    for sh in (gel.shadow, gel.text.shadow):
+        sh.angle = 315.0; sh.offset = 5.0; sh.radius = 5.0
+        set_color(sh.color, 0.0, 0.0, 0.0); sh.opacity = 0.75
+    gel.feather.radius = 0.05
+    t = gel.text
+    a = t.attributes
+    a.underline_style.SetInParent()
+    a.strikethrough_style.SetInParent()
+    a.paragraph_style.minimum_line_height = 1.0
+    a.paragraph_style.default_tab_interval = 84.0
+    a.paragraph_style.text_list.SetInParent()
+    t.margins.SetInParent()
+    t.is_superscript_standardized = True
+    t.transformDelimiter = "  \u2022  "
+    set_color(t.chord_pro.color, 0.993, 0.76, 0.032)
+    gel.text_line_mask.SetInParent()
+    sl_el.text_scroller.scroll_rate = 0.5
+    sl_el.text_scroller.should_repeat = True
+    sl_el.text_scroller.repeat_distance = 0.055370518964133794
 
 
 def _apply_text_attrs(txt, *, font_name, font_family, size, color_rgb, stroke,
@@ -165,9 +230,8 @@ def _apply_text_attrs(txt, *, font_name, font_family, size, color_rgb, stroke,
     txt.attributes.paragraph_style.line_height_multiple = 1.0
     if stroke.get("width", 0):
         sc = stroke.get("color", [0, 0, 0])
-        # same width as the RTF, positive as ProPresenter writes it (its editor
-        # shows this value; the output draws from the RTF)
-        txt.attributes.stroke_width = abs(float(stroke["width"]))
+        # negative = outline AND fill, as ProPresenter 22 writes it (stroke 6 -> -6)
+        txt.attributes.stroke_width = -abs(float(stroke["width"]))
         txt.attributes.stroke_color.red = sc[0] / 255.0 if sc[0] > 1 else sc[0]
         txt.attributes.stroke_color.green = sc[1] / 255.0 if sc[1] > 1 else sc[1]
         txt.attributes.stroke_color.blue = sc[2] / 255.0 if sc[2] > 1 else sc[2]
@@ -208,28 +272,16 @@ def _add_rows_element(base, rows, box, valign, cfg):
     _apply_text_attrs(txt, font_name=base_row["font"], font_family=base_row["family"],
                       size=base_row["size"], color_rgb=color, stroke=stroke,
                       align="center")
+    _add_original_fonts(txt, [(r["font"], r["family"], r["size"], r["text"]) for r in rows])
+    _pp_text_defaults(gel, sl_el)
     return gel
 
 
 def make_rtf(lines, font_pt, font_name="HelveticaNeue", color_rgb=(255, 255, 255),
              align="center", stroke=None):
     """Build RTF bytes for one single-tier text box (e.g. the title footer)."""
-    half = int(round(font_pt * 2))
-    r, g, b = color_rgb
-    stroke = stroke or {"width": 0}
-    sc = stroke.get("color", [0, 0, 0])
-    stok = _stroke_tokens(stroke)
-    qcode = {"center": "\\qc", "left": "\\ql", "right": "\\qr"}.get(align, "\\qc")
-    body = "\\\n".join(rtf_escape(ln) for ln in lines)
-    return (
-        "{\\rtf1\\ansi\\ansicpg1252\\cocoartf2639\n"
-        "{\\fonttbl\\f0\\fnil\\fcharset0 %s;}\n"
-        "{\\colortbl;\\red%d\\green%d\\blue%d;\\red%d\\green%d\\blue%d;}\n"
-        "{\\*\\expandedcolortbl;;;}\n"
-        "\\pard\\pardirnatural%s\\partightenfactor0\n"
-        "\\f0\\fs%d \\cf1 %s%s}"
-        % (font_name, r, g, b, sc[0], sc[1], sc[2], qcode, half, stok, body)
-    ).encode("utf-8")
+    runs = [(font_name, has_cjk(ln), font_pt, ln) for ln in lines]
+    return _pp_rtf(runs, color_rgb, stroke or {"width": 0}, align)
 
 
 def set_color(c, r, g, b, a=1.0):
@@ -278,6 +330,8 @@ def add_text_element(base, lines, *, font_pt, font_name, font_family,
     txt.vertical_alignment = getattr(txt, "VERTICAL_ALIGNMENT_" + valign.upper())
     _apply_text_attrs(txt, font_name=font_name, font_family=font_family,
                       size=font_pt, color_rgb=color_rgb, stroke=stroke, align=align)
+    _add_original_fonts(txt, [(font_name, font_family, font_pt, ln) for ln in lines])
+    _pp_text_defaults(gel, sl_el)
     return gel
 
 
@@ -309,7 +363,8 @@ def write_presentation(song, name=None):
     ai = p.application_info
     ai.application = appinfo_pb2.ApplicationInfo.APPLICATION_PROPRESENTER
     ai.platform = appinfo_pb2.ApplicationInfo.PLATFORM_MACOS
-    ai.application_version.major_version = 7
+    (ai.application_version.major_version, ai.application_version.minor_version,
+     ai.application_version.patch_version, ai.application_version.build) = PROPRESENTER_VERSION
 
     group_ids = []
     for sec in song["sections"]:

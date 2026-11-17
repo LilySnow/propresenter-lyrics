@@ -5,13 +5,13 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$HERE/src/propresenter_lyrics/proto"
-VERSION="${1:-Proto 19beta}"   # folder inside the greyshirtguy repo
+VERSION="${1:-autogen-proto}"  # folder inside the greyshirtguy repo (autogen-proto = latest ProPresenter)
 
 TMP="$(mktemp -d)"
 echo "Cloning proto definitions into $TMP ..."
 git clone --depth 1 https://github.com/greyshirtguy/ProPresenter7-Proto.git "$TMP/repo"
 
-pip install protobuf grpcio-tools >/dev/null
+pip install "protobuf>=6.33,<7" "grpcio-tools==1.76.0" >/dev/null  # stamps 6.31.1: works with protobuf 6.33+
 
 echo "Compiling '$VERSION' -> $OUT"
 rm -f "$OUT"/*_pb2.py
